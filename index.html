@@ -814,23 +814,94 @@ basemap.on('tileerror',()=>{if(++basemapFailures>=4 && leaf.hasLayer(basemap)){
 
 setTimeout(()=>{leaf.invalidateSize();if(layer&&layer.getBounds().isValid())leaf.fitBounds(layer.getBounds(),{padding:[5,5],maxZoom:10})},150);for(let id of ['geography','area','party','compare'])$(id).addEventListener('change',()=>{if(id==='geography'){options();titleCountyOptions();}if(id==='geography'||id==='area'){let g=$('geography').value,a=$('area').value;mapSelected=(g!=='state'&&a!=='ALL')?{g,key:mapKey(a)}:null;if(maps[g]){$('mapLayer').value=g;document.querySelectorAll('#mapSegments button').forEach(b=>b.classList.toggle('active',b.dataset.layer===g))}}render();if((id==='area'||id==='geography')&&mapSelected)focusSelectedMapArea();else if((id==='area'||id==='geography')&&mapBounds&&mapBounds.isValid())leaf.flyToBounds(mapBounds,{padding:[18,18],maxZoom:10,duration:.5})});$('mapLayer').addEventListener('change',()=>{clearMapArea()});$('mapMetric').addEventListener('change',paintMap);$('mapSegments').addEventListener('click',e=>{let b=e.target.closest('button[data-layer]');if(!b)return;$('mapLayer').value=b.dataset.layer;$('mapSegments').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));clearMapArea()});$('search').addEventListener('input',()=>{localPage=0;renderTowns()});setupLocalExplorer();setupPillFilters();toggles('paceToggle',v=>paceMode=v);toggles('dailyToggle',v=>dailyMode=v);options();titleCountyOptions();render()}catch(e){$('loading').textContent='Unable to load tracker data: '+e.message+'. Serve these files together from a web server rather than opening index.html directly.';console.error(e)}}init();
 </script><script>
-/* Poll the hosted snapshot, without implying a direct live connection to Maine SOS. */
-let trackerLastPayload = null;
-async function checkTrackerUpdates(manual=false){
-  const status=document.getElementById('refreshStatus');
-  if(!DB||!rows.length)return;
-  if(manual)status.textContent='Checking published data…';
-  try{
-    const response=await fetch('data.json?fresh='+Date.now(),{cache:'no-store'});
-    if(!response.ok)throw Error('HTTP '+response.status);
-    const payload=await response.text();
-    if(trackerLastPayload===null){trackerLastPayload=payload;if(manual)status.textContent='Published snapshot checked · '+new Date().toLocaleTimeString();return}
-    if(payload===trackerLastPayload){if(manual)status.textContent='No changes to published data · '+new Date().toLocaleTimeString();return}
-    const updated=JSON.parse(payload);
-    if(!Array.isArray(updated.observations))throw Error('Missing observations');
-    trackerLastPayload=payload;DB=updated;rows=updated.observations;
-    render();status.textContent='New published data loaded · '+new Date().toLocaleTimeString();
-  }catch(e){status.textContent='Could not check for updates: '+e.message}
+
+/* Check the published version before downloading the full dataset. */
+let trackerLastVersion = null;
+let trackerRefreshBusy = false;
+
+async function checkTrackerUpdates(manual = false) {
+  const status = document.getElementById('refreshStatus');
+
+  if (!DB || !rows.length || trackerRefreshBusy) return;
+
+  trackerRefreshBusy = true;
+
+  if (manual) {
+    status.textContent = 'Checking published data…';
+  }
+
+  try {
+    const versionResponse = await fetch(
+      'data-version.json?fresh=' + Date.now(),
+      { cache: 'no-store' }
+    );
+
+    if (!versionResponse.ok) {
+      throw Error('Version check HTTP ' + versionResponse.status);
+    }
+
+    const versionInfo = await versionResponse.json();
+    const version = Number(versionInfo.version);
+
+    if (!Number.isSafeInteger(version) || version < 1) {
+      throw Error('Invalid data version');
+    }
+
+    /* Establish the initial version without downloading data.json again. */
+    if (trackerLastVersion === null) {
+      trackerLastVersion = version;
+
+      if (manual) {
+        status.textContent = 'Published data checked · ' +
+          new Date().toLocaleTimeString();
+      }
+
+      return;
+    }
+
+    if (version === trackerLastVersion) {
+      if (manual) {
+        status.textContent = 'No new data available · ' +
+          new Date().toLocaleTimeString();
+      }
+
+      return;
+    }
+
+    /* A new version is available: download the full aggregate dataset. */
+    const dataResponse = await fetch(
+      'data.json?fresh=' + Date.now(),
+      { cache: 'no-store' }
+    );
+
+    if (!dataResponse.ok) {
+      throw Error('Data download HTTP ' + dataResponse.status);
+    }
+
+    const updated = await dataResponse.json();
+
+    if (!Array.isArray(updated.observations)) {
+      throw Error('Updated data is missing observations');
+    }
+
+    DB = updated;
+    rows = updated.observations;
+
+    trackerLastVersion = version;
+
+    render();
+
+    status.textContent = 'New published data loaded · ' +
+      new Date().toLocaleTimeString();
+
+  } catch (error) {
+    status.textContent = 'Could not check for updates: ' +
+      error.message;
+    console.error('Maine Votes refresh:', error);
+
+  } finally {
+    trackerRefreshBusy = false;
+  }
 }
 document.getElementById('refreshData').addEventListener('click',()=>checkTrackerUpdates(true));
 setInterval(()=>checkTrackerUpdates(false),15*60*1000);
