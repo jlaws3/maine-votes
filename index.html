@@ -527,163 +527,103 @@ function options(){let g=$('geography').value,a=$('area');let keys=g==='state'?[
 function regTotal(){let g=$('geography').value,a=$('area').value,p=$('party').value;if(!['state','town','county'].includes(g))return null;let n=0;for(let [town,parties] of Object.entries(DB.registration)){if(a!=='ALL'&&g==='town'&&town!==a)continue;if(a!=='ALL'&&g==='county'&&townCounty[town]!==a)continue;n+=p==='ALL'?(parties.TOTAL||0):(parties[p]||0)}return n}
 function render(){let cutoff=diff(2026,snapshot());let ret=sum(rows.filter(r=>r[0]===2026&&r[6]==='returned').map(r=>r[9])),req=sum(rows.filter(r=>r[0]===2026&&r[6]==='requested').map(r=>r[9]));let stateReg=Object.values(DB.registration).reduce((n,p)=>n+(p.TOTAL||0),0);$('returned').textContent=fmt(ret);$('requested').textContent=fmt(req);$('rate').textContent=pct(ret,req);$('share').textContent=pct(ret,stateReg);$('asof').textContent='2026 data through '+snapshot()+' · '+cutoff+' days before Election Day';updateSelectionHeading();renderPace(cutoff);renderDaily();renderTables(cutoff);renderTowns();paintMap()}
 function chart(id,existing,config){if(existing)existing.destroy();return new Chart($(id),config)}
-
-function renderPace(cut) {
-  const selected = Number($('compare').value);
-  const years = [2026, selected];
-  const first = 60;
-  const days = Array.from(
-    { length: first + 1 },
-    (_, i) => first - i
-  );
-
-  const shade = {
-    2026: '#1f3c71',
-    2024: '#007f70',
-    2022: '#fa963d'
-  };
-
-  const historicalLabel = selected === 2024
-    ? '2024 presidential'
-    : '2022 midterm';
-
-  const datasets = years.map(y => {
-    const m = series(
-      y,
-      paceMode,
-      y === 2026 ? cut : 0
-    );
-
-    const lastDay = y === 2026 ? cut : 0;
-    let cumulative = 0;
-
-    const data = days.map(d => {
-      if (d < lastDay) return null;
-      cumulative += m.get(d) || 0;
+function renderPace(cut){
+  const selected=Number($('compare').value);
+  const years=[2026,selected];
+  const shade={2026:'#1f3c71',2024:'#007f70',2022:'#fa963d'};
+  const historicalLabel=selected===2024?'2024 presidential':'2022 midterm';
+  const first=Math.max(60,cut);
+  const days=Array.from({length:first+1},(_,i)=>first-i);
+  const datasets=years.map(y=>{
+    const m=series(y,paceMode,y===2026?cut:0);
+    const lastDay=y===2026?cut:0;
+    let cumulative=0;
+    const data=days.map(d=>{
+      if(d<lastDay)return null;
+      cumulative+=m.get(d)||0;
       return cumulative;
     });
-
     return {
-      label: y === 2026 ? '2026 current' : historicalLabel,
+      label:y===2026?'2026 current':historicalLabel,
       data,
-      borderColor: shade[y],
-      borderWidth: y === 2026 ? 3.5 : 3,
-      borderDash: y === 2026 ? [] : [6, 4],
-      pointRadius: 0,
-      pointHitRadius: 12,
-      pointHoverRadius: 5,
-      pointHoverBackgroundColor: shade[y],
-      pointBackgroundColor: shade[y],
-      pointBorderWidth: 0,
-      pointHoverBorderWidth: 0,
-      tension: .14,
-      spanGaps: false
+      borderColor:shade[y],
+      borderWidth:y===2026?3.5:3,
+      borderDash:y===2026?[]:[6,4],
+      pointRadius:0,
+      pointHitRadius:12,
+      pointHoverRadius:5,
+      pointHoverBackgroundColor:shade[y],
+      pointBackgroundColor:shade[y],
+      pointBorderWidth:0,
+      pointHoverBorderWidth:0,
+      tension:.14,
+      spanGaps:false
     };
   });
-
-  paceChart = chart('paceChart', paceChart, {
-    type: 'line',
-    data: {
-      labels: days.map(d => d + ' days'),
-      datasets
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false
+  paceChart=chart('paceChart',paceChart,{
+    type:'line',
+    data:{labels:days.map(d=>d+' days'),datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'line',boxWidth:24,boxHeight:3,padding:24,font:{family:'Barlow',size:12}}},
+        tooltip:{usePointStyle:true,callbacks:{label:x=>x.parsed.y==null?x.dataset.label+': Not yet reported':x.dataset.label+': '+fmt(x.parsed.y)}}
       },
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            usePointStyle: true,
-            pointStyle: 'line',
-            boxWidth: 24,
-            boxHeight: 3,
-            padding: 24,
-            font: {
-              family: 'Barlow',
-              size: 12
-            }
-          }
-        },
-        tooltip: {
-          usePointStyle: true,
-          callbacks: {
-            label: x => x.parsed.y == null
-              ? x.dataset.label + ': Not yet reported'
-              : x.dataset.label + ': ' + fmt(x.parsed.y)
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => fmt(v),
-            font: { family: 'Barlow' }
-          }
-        },
-        x: {
-          ticks: {
-            maxTicksLimit: 9,
-            font: { family: 'Barlow' }
-          },
-          title: {
-            display: true,
-            text: 'Days before Election Day',
-            font: { family: 'Barlow' }
-          }
-        }
+      scales:{
+        y:{beginAtZero:true,ticks:{callback:v=>fmt(v),font:{family:'Barlow'}}},
+        x:{ticks:{maxTicksLimit:9,font:{family:'Barlow'}},title:{display:true,text:'Days before Election Day',font:{family:'Barlow'}}}
       }
     }
   });
-
-  const current = total(2026, paceMode, cut);
-  const historical = total(selected, paceMode, cut);
-  const difference = current - historical;
-
-  const signedDifference =
-    (difference > 0 ? '+' : difference < 0 ? '−' : '') +
-    fmt(Math.abs(difference));
-
-  const percentDifference = historical > 0
-    ? Math.abs(difference / historical * 100).toFixed(1) + '%'
-    : null;
-
-  const comparisonText = difference > 0
-    ? 'More than ' + selected
-    : difference < 0
-      ? 'Fewer than ' + selected
-      : 'Same as ' + selected;
-
-  const comparisonDetail = percentDifference
-    ? percentDifference + ' ' +
-      (difference > 0 ? 'higher' : difference < 0 ? 'lower' : 'difference') +
-      ' at the same point'
-    : 'Historical comparison';
-
-  $('paceSnapshot').innerHTML = `
+  const current=total(2026,paceMode,cut);
+  const historical=total(selected,paceMode,cut);
+  const difference=current-historical;
+  const signedDifference=(difference>0?'+':difference<0?'−':'')+fmt(Math.abs(difference));
+  const percentDifference=historical>0?Math.abs(difference/historical*100).toFixed(1)+'%':null;
+  const comparisonText=difference>0?'More than '+selected:difference<0?'Fewer than '+selected:'Same as '+selected;
+  const comparisonDetail=percentDifference?(difference===0?'Equal at the same point':percentDifference+' '+(difference>0?'higher':'lower')+' at the same point'):'Historical comparison';
+  $('paceSnapshot').innerHTML=`
     <div class="pace-mini" style="--accent:${shade[2026]}">
       <div class="mini-name">2026 so far</div>
       <div class="mini-value">${fmt(current)}</div>
       <div class="mini-detail">${cut} days before Election Day</div>
     </div>
-
     <div class="pace-mini" style="--accent:${shade[selected]}">
       <div class="mini-name">${historicalLabel}</div>
       <div class="mini-value">${fmt(historical)}</div>
       <div class="mini-detail">At ${cut} days before Election Day</div>
     </div>
-
     <div class="pace-mini" style="--accent:${shade[selected]}">
       <div class="mini-name">${comparisonText}</div>
       <div class="mini-value">${signedDifference}</div>
       <div class="mini-detail">${comparisonDetail}</div>
-    </div>
-  `;
+    </div>`;
+}
+function renderDaily(){let grouped=new Map(),parties=new Set();for(let r of rows)if(r[0]===2026&&r[6]==='returned'&&match(r)){let k=dailyMode==='party'?r[2]:(r[8]||'Unknown');parties.add(k);let id=r[7]+'|'+k;grouped.set(id,(grouped.get(id)||0)+r[9])}let ds=[...new Set([...grouped.keys()].map(k=>k.split('|')[0]))].sort();let keys=[...parties].sort();dailyChart=chart('dailyChart',dailyChart,{type:'bar',data:{labels:ds.map(x=>x.slice(5)),datasets:keys.map((k,i)=>({label:names[k]||k,data:ds.map(d=>grouped.get(d+'|'+k)||0),backgroundColor:dailyMode==='party'?(colors[k]||'#888'):['#1f3c71','#007f70','#78aa92','#a3cdd2','#fa963d','#ffbb00'][i%6],stack:'a'}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+fmt(x.parsed.y)}}},scales:{x:{stacked:true,ticks:{maxTicksLimit:8}},y:{stacked:true,beginAtZero:true}}}})}
+function renderTables(cut){let parties=['D','R','U','G','L','NL'];$('partyRows').innerHTML=parties.map(p=>{let count=y=>sum(rows.filter(r=>r[0]===y&&r[6]==='returned'&&geographyMatches(r)&&r[2]===p&&diff(y,r[7])>=cut).map(r=>r[9]));return `<tr><td><span class="swatch" style="background:${colors[p]||'#555'}"></span>${names[p]}</td><td>${fmt(count(2026))}</td><td>${fmt(count(2024))}</td><td>${fmt(count(2022))}</td></tr>`}).join('');let methods=new Map(),tot=0;for(let r of rows)if(r[0]===2026&&r[6]==='returned'&&match(r)){let k=r[8]||'Unknown';methods.set(k,(methods.get(k)||0)+r[9]);tot+=r[9]}$('methodRows').innerHTML=[...methods].sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<tr><td>${k}</td><td>${fmt(n)}</td><td>${pct(n,tot)}</td></tr>`).join('')}
+let localPage=0;
+const LOCAL_PAGE_SIZE=8;
+function titleCountyOptions(){const a=$('area');if($('geography').value!=='county')return;for(const o of a.options){if(o.value!=='ALL')o.textContent=String(o.textContent).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}}
+function renderTowns(){
+  let m=new Map();
+  for(let r of rows)if(r[0]===2026&&match(r)){
+    let key=r[1],o=m.get(key)||{q:0,r:0};
+    o[r[6]==='returned'?'r':'q']+=r[9];m.set(key,o);
+  }
+  const q=$('search').value.trim().toUpperCase();
+  const county=$('localCounty').value;
+  const list=[...m].filter(([t])=>t.includes(q)&&(county==='ALL'||townCounty[t]===county))
+    .sort((a,b)=>b[1].r-a[1].r||a[0].localeCompare(b[0]));
+  const pages=Math.max(1,Math.ceil(list.length/LOCAL_PAGE_SIZE));
+  localPage=Math.min(localPage,pages-1);
+  const shown=list.slice(localPage*LOCAL_PAGE_SIZE,(localPage+1)*LOCAL_PAGE_SIZE);
+  const safe=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  $('townRows').innerHTML=shown.map(([t,o])=>`<tr><td>${safe(t)}</td><td>${fmt(o.r)}</td><td>${fmt(o.q)}</td><td><div class="rate-cell"><div class="rate-track" role="meter" aria-label="Return rate for ${safe(t)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${o.q?Math.min(100,Math.max(0,100*o.r/o.q)).toFixed(1):0}"><span style="width:${o.q?Math.min(100,Math.max(0,100*o.r/o.q)):0}%"></span></div><span class="local-rate">${pct(o.r,o.q)}</span></div></td></tr>`).join('')||'<tr><td colspan="4" class="local-empty">No matching municipalities. Try another search or county.</td></tr>';
+  $('townNote').textContent=list.length?`${fmt(list.length)} matching municipalities · ordered by accepted ballots`:'No matches';
+  $('localPage').textContent=`${localPage+1} / ${pages}`;
+  $('localPrev').disabled=localPage===0;
+  $('localNext').disabled=localPage>=pages-1;
 }
 function setupLocalExplorer(){
   const c=$('localCounty');
@@ -896,138 +836,4 @@ document.getElementById('refreshData').addEventListener('click',()=>checkTracker
 setInterval(()=>checkTrackerUpdates(false),15*60*1000);
 /* Establish a baseline once the initial load completes. */
 window.addEventListener('load',()=>setTimeout(()=>checkTrackerUpdates(false),2500));
-  
-<style>
-/* Maine Votes — historical comparison legend */
-.maine-pace-legend {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 28px;
-  margin: 12px 0 0;
-  font-family: Barlow, Arial, sans-serif;
-}
-
-.maine-pace-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #526175;
-}
-
-.maine-pace-legend-line {
-  width: 32px;
-  height: 0;
-  border-top: 4px solid;
-  flex-shrink: 0;
-}
-
-.maine-pace-legend-line.historical {
-  border-top-style: dashed;
-}
-
-@media (max-width: 600px) {
-  .maine-pace-legend {
-    gap: 10px 18px;
-  }
-
-  .maine-pace-legend-item {
-    font-size: 12px;
-  }
-}
-</style>
-
-<script>
-(function () {
-  "use strict";
-
-  const colors = {
-    "2026": "#1f3c71",
-    "2024": "#007f70",
-    "2022": "#fa963d"
-  };
-
-  function updatePaceLegend() {
-    const chart = document.getElementById("paceChart");
-    if (!chart) return;
-
-    const chartBox = chart.closest(".pace-chartbox");
-    if (!chartBox) return;
-
-    let legend = document.getElementById("mainePaceLegend");
-
-    if (!legend) {
-      legend = document.createElement("div");
-      legend.id = "mainePaceLegend";
-      legend.className = "maine-pace-legend";
-      legend.setAttribute("aria-label", "Election chart legend");
-      chartBox.insertAdjacentElement("afterend", legend);
-    }
-
-    const selected = document.getElementById("compare")?.value || "2024";
-
-    const items = [
-      { year: "2026", label: "2026 current" },
-      {
-        year: selected,
-        label: selected === "2024"
-          ? "2024 Presidential"
-          : "2022 Midterm"
-      }
-    ];
-
-    legend.innerHTML = items.map(item => `
-      <span class="maine-pace-legend-item">
-        <span
-          class="maine-pace-legend-line
-          ${item.year === "2026" ? "" : "historical"}"
-          style="border-top-color:${colors[item.year]}"
-          aria-hidden="true"
-        ></span>
-        <span>${item.label}</span>
-      </span>
-    `).join("");
-
-    // Hide Chart.js's built-in legend if the chart exists.
-    if (typeof Chart !== "undefined") {
-      const instance = Chart.getChart(chart);
-      if (instance && instance.options.plugins?.legend) {
-        instance.options.plugins.legend.display = false;
-        instance.update("none");
-      }
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    const buttons = document.getElementById("comparePills");
-
-    if (buttons) {
-      buttons.addEventListener("click", function () {
-        requestAnimationFrame(updatePaceLegend);
-      });
-    }
-
-    const toggle = document.getElementById("paceToggle");
-
-    if (toggle) {
-      toggle.addEventListener("click", function () {
-        requestAnimationFrame(updatePaceLegend);
-      });
-    }
-
-    const chart = document.getElementById("paceChart");
-
-    if (chart) {
-      const observer = new MutationObserver(updatePaceLegend);
-      observer.observe(chart, { attributes: true });
-    }
-
-    updatePaceLegend();
-  });
-})();
-</script>
-
 </script></body></html>
