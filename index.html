@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>Maine Early Vote Tracker</title><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>
+:root{--ink:#151515;--muted:#667085;--line:#e4e7ec;--bg:#fff;--d:#1f3c71;--r:#d83d27;--u:#858a95;--g:#007f70;--metln-01:#00483e;--metln-02:#007f70;--metln-03:#78aa92;--metln-04:#a3cdd2;--metln-05:#fa963d;--metln-06:#d83d27;--metln-07:#ffe5cb;--metln-08:#1f3c71;--metln-yellow:#ffbb00}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font-family:Barlow,Arial,sans-serif}main{max-width:1440px;margin:auto;padding:30px 22px 90px}h1{font-size:clamp(30px,4vw,52px);letter-spacing:-.04em;margin:4px 0 5px;font-weight:700}h2{font-size:24px;letter-spacing:-.02em;margin:0 0 8px}.sub,.note{color:var(--muted);font-size:14px}.top{display:flex;align-items:end;justify-content:space-between;gap:20px;flex-wrap:wrap}.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:800;text-transform:uppercase}.filters{display:flex;gap:12px;flex-wrap:wrap;margin:26px 0}label{font-weight:600;font-size:13px;display:flex;flex-direction:column;gap:6px}select,input{font:inherit;border:1px solid #cdd2d9;border-radius:9px;padding:10px 13px;background:white;min-width:150px;color:#151515}input[type=search]{width:100%}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.card,.panel{border:1px solid var(--line);border-radius:14px;background:#fff;padding:19px}.kpis .value{font-size:clamp(24px,3vw,40px);font-weight:700;letter-spacing:-.035em;margin:8px 0 4px}.kpis .caption{font-size:13px;color:var(--muted)}.kpis .label{font-size:13px;font-weight:600}.section{margin-top:28px}.two{display:grid;grid-template-columns:1fr 1fr;gap:15px}.chartbox{height:315px;position:relative;margin-top:12px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{border:1px solid var(--line);background:#fff;padding:8px 12px;border-radius:99px;font:600 13px Barlow;cursor:pointer}.tabs button.active{background:#111;color:white;border-color:#111}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:#555;font-size:12px;letter-spacing:.03em;text-transform:uppercase}td,th{padding:12px 9px;border-bottom:1px solid var(--line)}td:not(:first-child),th:not(:first-child){text-align:right}.scroll{overflow:auto}#map{height:480px;min-height:380px;border-radius:12px;margin-top:14px;background:#f1f4f6}.leaflet-container{background:#f1f4f6!important}.leaflet-control-attribution{font-family:Barlow,Arial,sans-serif}.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#555}.swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}.loading{padding:30px;color:#667085}.foot{margin-top:28px;border-top:1px solid var(--line);padding-top:18px;color:#667085;font-size:13px;line-height:1.5}@media(max-width:850px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}main{padding:18px 12px}.card,.panel{padding:14px}}@media(max-width:430px){.kpis{grid-template-columns:1fr 1fr}.kpis .value{font-size:25px}select{min-width:130px}}
+
+/* Newsroom map experience */
+.map-section{background:#f0f3f5;border:1px solid #e2e6eb;border-radius:18px;padding:18px}
+.map-section .panel{background:transparent;border:0;padding:0}
+.map-header{display:flex;align-items:end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.map-header h2{margin:0 0 5px}.map-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.map-segments{display:flex;gap:3px;padding:4px;background:white;border:1px solid #d9dee5;border-radius:10px;flex-wrap:wrap}
+.map-segments button{border:0;border-radius:7px;padding:9px 11px;background:white;color:#394559;font:600 13px Barlow;cursor:pointer}
+.map-segments button.active{background:#1f3c71;color:white}
+.map-controls select{min-width:190px;background:white}
+.map-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,1fr);gap:15px;align-items:stretch}
+.map-canvas,.map-card{border:1px solid #dbe1e7;border-radius:13px;background:white}
+.map-canvas{position:relative;overflow:hidden;min-width:0}
+#map{height:620px;margin:0;border-radius:12px;background:white}
+.map-reset{position:absolute;right:12px;top:90px;z-index:500;background:#fff;border:1px solid #cdd5df;border-radius:7px;padding:8px 11px;font:700 14px Barlow;cursor:pointer}
+.map-sidebar{display:grid;grid-template-rows:auto minmax(180px,1fr) auto;gap:14px;min-width:0}
+.map-card{padding:17px}.map-small{font-size:11px;letter-spacing:.12em;font-weight:800;color:#8390a2;text-transform:uppercase}
+.map-gradient{height:13px;border-radius:4px;margin:10px 0 4px;background:linear-gradient(90deg,#dfe8f5,#a3cdd2,#78aa92,#007f70,#1f3c71)}
+.map-scale{display:flex;justify-content:space-between;font-size:12px;color:#69768a}.map-muted{font-size:13px;color:#8390a2;line-height:1.5}
+.map-detail-title{font-size:23px;font-weight:700;margin:12px 0 10px}.map-stat{display:flex;justify-content:space-between;border-bottom:1px solid #e8ebef;padding:8px 0;font-size:14px}
+.map-stat strong{font-variant-numeric:tabular-nums}.map-apply{background:#1f3c71;border:0;border-radius:8px;color:white;padding:10px 14px;font:600 14px Barlow;cursor:pointer;margin-top:14px}
+.map-ranks{display:grid;grid-template-columns:1fr 1fr;gap:18px}.map-rank-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13px}.map-rank-row b{white-space:nowrap}
+.leaflet-container{font-family:Barlow,Arial,sans-serif}.leaflet-interactive:focus{outline:2px solid #ffbb00}
+@media(max-width:900px){.map-layout{grid-template-columns:1fr}.map-sidebar{grid-template-rows:auto}.map-ranks{gap:12px}#map{height:530px}}
+@media(max-width:500px){.map-section{padding:10px}.map-segments button{padding:8px 9px}#map{height:440px}.map-controls select{width:100%}}
+
+/* METLN design system — dashboard v3 */
+:root{--metln-navy:#1f3c71;--metln-teal:#007f70;--metln-orange:#fa963d;--metln-red:#d83d27;--metln-yellow:#ffbb00;--metln-sage:#78aa92;--metln-sky:#a3cdd2;--metln-cream:#ffe5cb}
+#maine-early-vote-tracker,body,body *,button,select,input,canvas{font-family:'Barlow',Arial,sans-serif!important}
+body{background:#fff}main{max-width:1520px}h1{font-weight:800;letter-spacing:-.045em}h2{font-weight:700}
+.filter-shell{display:flex;gap:20px;flex-wrap:wrap;align-items:end;padding:18px 0 20px;margin:22px 0 18px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.filter-group{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.filter-title{font-size:11px;font-weight:800;letter-spacing:.12em;color:#667085;align-self:center;margin-right:2px;white-space:nowrap}.filter-field{font-size:11px;color:#667085;font-weight:600;gap:4px}.filter-field select{min-width:142px;padding:10px 13px;font-weight:600;color:#151515;border-radius:12px}
+.party-pills,.compare-pills{display:flex;flex-wrap:wrap;gap:6px}.party-pills button,.compare-pills button{border:1px solid #dbe1e8;background:#fff;color:#303b4b;border-radius:100px;padding:10px 13px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap}
+.party-pills button:hover,.compare-pills button:hover{border-color:var(--metln-navy)}.party-pills button.active,.compare-pills button.active{background:var(--metln-navy);color:#fff;border-color:var(--metln-navy)}.party-pills i{display:inline-block;width:9px;height:9px;background:var(--dot);border-radius:50%;margin-right:7px;vertical-align:middle}.party-pills button.active i{box-shadow:0 0 0 1px #ffffff80}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.kpis .card{border-radius:14px;border-top:3px solid var(--metln-navy);box-shadow:0 2px 9px rgba(31,60,113,.035)}.kpis .card:nth-child(2){border-top-color:var(--metln-teal)}.kpis .card:nth-child(3){border-top-color:var(--metln-orange)}.kpis .card:nth-child(4){border-top-color:var(--metln-sky)}.kpis .value{font-weight:800;color:#162640;font-variant-numeric:tabular-nums}.kpis .label{font-weight:700}
+.pace-panel{padding:22px}.pace-chartbox{height:355px}.pace-snapshot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:17px}.pace-mini{border:1px solid #e4e7ec;border-radius:12px;padding:12px 15px;border-left:4px solid var(--accent);background:#fff}.pace-mini .mini-name{font-size:12px;font-weight:700;color:#667085}.pace-mini .mini-value{font-size:25px;font-weight:800;color:#15243c;margin-top:3px;font-variant-numeric:tabular-nums}.pace-mini .mini-detail{font-size:12px;color:#667085;margin-top:2px}
+.tabs button.active,.map-segments button.active{background:var(--metln-navy)!important;color:#fff!important;border-color:var(--metln-navy)!important}
+@media(max-width:900px){.filter-shell{gap:14px}.filter-group{width:100%}.pace-snapshot{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:600px){.filter-group{align-items:flex-start}.filter-title{width:100%}.filter-field{flex:1}.filter-field select{width:100%;min-width:0}.pace-snapshot{grid-template-columns:1fr}.pace-chartbox{height:310px}.party-pills button,.compare-pills button{padding:9px 11px}}
+</style><style>
+/* Version 4 — independent METLN editorial dashboard treatment */
+:root{--desk-ink:#17253b;--desk-navy:#1f3c71;--desk-teal:#007f70;--desk-orange:#fa963d;--desk-sage:#78aa92;--desk-ice:#a3cdd2;--desk-rule:#dfe5ea}
+body{background:#fff;color:var(--desk-ink)}main{max-width:1480px;padding-top:28px}
+.editorial-header{align-items:flex-start;padding-bottom:25px;border-bottom:3px solid var(--desk-navy)}
+.editorial-header .eyebrow{color:var(--desk-teal);font-size:11px;letter-spacing:.17em}
+.editorial-header h1{font-size:clamp(38px,5vw,66px);max-width:780px;line-height:1.01;letter-spacing:-.052em;font-weight:800;margin:13px 0 14px}
+.editorial-header .sub{font-size:17px;line-height:1.4;max-width:660px;color:#4f6176}
+.editorial-header #asof{font-size:12px;background:#edf3f7;color:#36536e;padding:9px 12px;border-radius:4px;max-width:270px}
+/* A distinct editorial filter rail instead of a single pill ribbon */
+.filter-shell{display:grid;grid-template-columns:minmax(210px,.9fr) minmax(350px,1.5fr) minmax(240px,1fr);align-items:start;gap:0;margin:0 0 30px;padding:0;border:1px solid var(--desk-rule);border-top:0;border-radius:0 0 10px 10px;background:#fafcfd}
+.filter-shell .filter-group{padding:19px 22px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;height:100%}
+.filter-shell .filter-group+.filter-group{border-left:1px solid var(--desk-rule)}
+.filter-title{color:var(--desk-navy);font-size:11px;letter-spacing:.14em;font-weight:800;margin:0}
+.filter-shell .filter-field{width:100%;font-size:12px;color:#516277}
+.filter-shell .filter-field select{width:100%;min-width:0;border-radius:6px;padding:9px 10px;background:white}
+.party-pills,.compare-pills{gap:7px}
+.party-pills button,.compare-pills button{border-radius:7px;padding:9px 12px;background:white;font-weight:600;box-shadow:none}
+.party-pills button.active,.compare-pills button.active{background:#e5edf6;color:var(--desk-navy);border-color:var(--desk-navy);box-shadow:inset 3px 0 0 var(--desk-navy)}
+.party-pills button:hover,.compare-pills button:hover{background:#f1f5f9}
+.desk-intro{display:flex;justify-content:space-between;align-items:end;gap:20px;margin:26px 0 15px}
+.desk-kicker{font-size:11px;letter-spacing:.14em;color:var(--desk-teal);font-weight:800}
+.desk-intro h2{font-size:30px;margin:5px 0 0;letter-spacing:-.035em}
+.desk-intro p{max-width:440px;margin:0;color:#667085;font-size:14px;line-height:1.5}
+.kpis{gap:0;border:1px solid var(--desk-rule);border-radius:9px;overflow:hidden;background:white}
+.kpis .card{border:0;border-top:0!important;border-radius:0!important;box-shadow:none!important;padding:23px 24px;position:relative}
+.kpis .card+.card{border-left:1px solid var(--desk-rule)}
+.kpis .card:before{content:'';position:absolute;left:24px;top:14px;width:36px;height:4px;background:var(--desk-navy)}
+.kpis .card:nth-child(2):before{background:var(--desk-teal)}.kpis .card:nth-child(3):before{background:var(--desk-orange)}.kpis .card:nth-child(4):before{background:var(--desk-ice)}
+.kpis .card .label{padding-top:10px;color:#4d5c6c;text-transform:uppercase;font-size:11px;letter-spacing:.08em}
+.kpis .value{font-size:clamp(27px,3.2vw,44px);font-weight:800;color:var(--desk-ink)}
+.kpis .caption{font-size:12px;line-height:1.4}
+.section{margin-top:44px}
+.section .panel{border:1px solid var(--desk-rule);border-radius:8px;box-shadow:none}
+.section h2{font-size:26px;letter-spacing:-.03em}
+.pace-panel{padding:26px 27px!important}
+.pace-chartbox{height:405px;margin-top:22px}
+.pace-snapshot{margin-top:18px;padding-top:17px;border-top:1px solid var(--desk-rule)}
+.pace-mini{border:0;border-radius:0;border-left:3px solid var(--accent);padding:8px 17px;background:#f7f9fb}
+.pace-mini .mini-value{color:var(--desk-ink)}
+.tabs button{border-radius:6px}
+.tabs button.active{background:var(--desk-navy)!important}
+/* Map is an atlas-style feature: compact info rail and larger white canvas */
+.map-section{background:#fff;border:0;border-top:3px solid var(--desk-navy);border-radius:0;padding:26px 0 0}
+.map-header{align-items:start;margin-bottom:18px}
+.map-segments{border-radius:6px;background:#f3f6f9}
+.map-segments button{border-radius:4px}
+.map-layout-editorial{grid-template-columns:minmax(265px,.55fr) minmax(0,1.45fr);gap:15px}
+.map-layout-editorial .map-sidebar{grid-column:1;grid-row:1;grid-template-rows:auto auto auto;align-content:start}
+.map-layout-editorial .map-canvas{grid-column:2;grid-row:1;border-radius:6px}
+.map-card{border-radius:6px;background:#f7f9fb}
+#map{height:640px;background:#f7fafb}
+.map-detail-title{font-size:22px}
+.map-gradient{background:linear-gradient(90deg,#dfe8f5,#a3cdd2,#78aa92,#007f70,#1f3c71)}
+.map-apply{border-radius:5px}
+.map-ranks{grid-template-columns:1fr 1fr}
+.foot{margin-top:45px;border-top:2px solid var(--desk-navy);padding-top:22px}
+@media(max-width:1080px){.filter-shell{grid-template-columns:1fr 1fr}.filter-shell .filter-group:last-child{grid-column:1/-1;border-top:1px solid var(--desk-rule);border-left:0}.map-layout-editorial{grid-template-columns:minmax(240px,.7fr) minmax(0,1.3fr)}}
+@media(max-width:850px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis .card:nth-child(3){border-left:0;border-top:1px solid var(--desk-rule)!important}.kpis .card:nth-child(4){border-top:1px solid var(--desk-rule)!important}.map-layout-editorial{grid-template-columns:1fr}.map-layout-editorial .map-sidebar{grid-column:1;grid-row:2}.map-layout-editorial .map-canvas{grid-column:1;grid-row:1}.map-sidebar{grid-template-columns:1fr 1fr}.map-sidebar .map-card:nth-child(2){grid-column:1/-1;grid-row:1}.map-sidebar .map-card:nth-child(3){grid-column:1/-1}}
+@media(max-width:650px){.filter-shell{grid-template-columns:1fr}.filter-shell .filter-group{border-left:0!important;border-top:1px solid var(--desk-rule)}.filter-shell .filter-group:first-child{border-top:0}.filter-shell .filter-group:last-child{grid-column:auto}.desk-intro{display:block}.desk-intro p{margin-top:10px}.editorial-header h1{font-size:40px}.kpis .card{padding:20px 14px}.kpis .card:before{left:14px}.pace-chartbox{height:320px}.map-sidebar{grid-template-columns:1fr}#map{height:460px}}
+</style><style>
+/* V5: airy editorial explorer — independent presentation */
+:root{--v5-navy:#1f3c71;--v5-teal:#007f70;--v5-ink:#17253b;--v5-rule:#e4e9ed}
+html{scroll-behavior:smooth}body{background:#fff;color:var(--v5-ink)}main{max-width:1360px;padding:24px 34px 85px}
+h1{font-size:clamp(38px,4.4vw,64px);line-height:1.02;max-width:780px;letter-spacing:-.052em;font-weight:800}
+h2{font-size:clamp(22px,2vw,29px);font-weight:700;letter-spacing:-.025em}
+.top{padding:8px 0 18px;align-items:center;border-bottom:1px solid var(--v5-rule)}
+.top .sub{max-width:670px;line-height:1.5}
+.v5-jump{display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;padding:12px 0;border-bottom:1px solid var(--v5-rule)}
+.v5-jump a{color:#516078;font-size:13px;font-weight:700;text-decoration:none;padding:9px 12px;border-radius:7px}
+.v5-jump a:hover,.v5-jump a:focus-visible{background:#eef3f7;color:var(--v5-navy)}
+.filter-shell{margin:0 0 24px;padding:16px 0 14px;border:0;gap:14px 22px;align-items:center}
+.filter-group{gap:7px}.filter-title{letter-spacing:.08em;color:#68758a}
+.party-pills button,.compare-pills button{border-radius:8px;padding:8px 11px;font-size:12px}
+.filter-field select{border-radius:8px;padding:8px 11px;font-size:13px}
+.desk-intro{margin:6px 0 14px;align-items:end}.desk-intro p{max-width:460px;line-height:1.45}
+.kpis{gap:0;border-top:2px solid var(--v5-navy);border-bottom:1px solid var(--v5-rule)}
+.kpis .card{border:0!important;border-right:1px solid var(--v5-rule)!important;border-radius:0!important;box-shadow:none!important;padding:18px 20px 20px!important;min-height:124px;background:transparent!important}
+.kpis .card:last-child{border-right:0!important}
+.kpis .label{font-size:12px;color:#546176;letter-spacing:.015em}
+.kpis .value{font-size:clamp(29px,3vw,43px);font-weight:800;margin:8px 0 2px;color:var(--v5-ink)}
+.kpis .caption{font-size:12px;line-height:1.3}
+.section{margin-top:38px}.panel{border:0;border-top:1px solid var(--v5-rule);border-radius:0;padding:22px 0 8px;background:transparent;box-shadow:none}
+.pace-panel{padding:18px 0 10px}.pace-chartbox{height:350px}
+.pace-snapshot{margin-top:12px;gap:0;border-top:1px solid var(--v5-rule)}
+.pace-mini{border:0;border-right:1px solid var(--v5-rule);border-radius:0;padding:14px 20px 8px;background:transparent}
+.pace-mini:first-child{padding-left:0}.pace-mini:last-child{border-right:0}
+.pace-mini .mini-value{font-size:24px}.pace-mini .mini-name{font-size:12px}
+.tabs button{border-radius:7px;font-size:12px}
+.map-section{background:#f5f7f8;border:0;border-radius:10px;padding:25px 26px 28px;margin-top:43px}
+.map-section>.panel{padding:0;border:0}.map-header{margin-bottom:20px}
+.map-layout{grid-template-columns:minmax(0,1.55fr) minmax(265px,.72fr);gap:14px}
+.map-canvas,.map-card{border:1px solid #e0e5e9;border-radius:8px;box-shadow:none}
+.map-card{padding:15px}.map-sidebar{gap:10px}.map-detail-title{font-size:22px}
+#map{height:520px;border-radius:8px}.map-segments{border-radius:8px}.map-segments button{border-radius:5px}
+.two{gap:40px}.two .panel{min-width:0}.chartbox:not(.pace-chartbox){height:275px}
+#townRows tr:hover{background:#f5f8fa}th{color:#68758a}td,th{padding:10px 7px}
+.foot{margin-top:45px;line-height:1.7}
+@media(max-width:950px){main{padding:20px 22px 70px}.map-layout{grid-template-columns:1fr}.map-sidebar{grid-template-columns:1fr 1fr;grid-template-rows:auto}.map-sidebar .map-card:nth-child(2){grid-row:span 2}#map{height:500px}.two{gap:20px}}
+@media(max-width:650px){main{padding:14px 15px 60px}.top{gap:8px}.v5-jump{margin:0 -15px;padding:8px 10px}.filter-shell{gap:12px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis .card:nth-child(2){border-right:0!important}.kpis .card:nth-child(-n+2){border-bottom:1px solid var(--v5-rule)!important}.kpis .card{padding:14px 10px!important;min-height:120px}.kpis .value{font-size:30px}.pace-snapshot{grid-template-columns:1fr 1fr 1fr}.pace-mini{padding:10px 8px}.pace-mini .mini-value{font-size:18px}.map-section{margin:35px -15px 0;padding:18px 15px;border-radius:0}.map-sidebar{grid-template-columns:1fr}.map-sidebar .map-card:nth-child(2){grid-row:auto}#map{height:425px}.two{grid-template-columns:1fr}.section{margin-top:30px}}
+</style><style>
+/* Version 6: geographic-first, editorial atlas */
+body{background:#fff;color:#182b3c}
+main{max-width:1440px;padding:30px 40px 80px}
+.top.editorial-header{margin-bottom:14px;padding-bottom:18px;border-bottom:2px solid #1f3c71}
+.top h1{font-size:clamp(32px,4vw,54px);font-weight:700;letter-spacing:-.035em}
+.top .sub{max-width:740px}
+.refresh-tools{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:0 0 22px}
+.refresh-tools button{font:600 13px Barlow,Arial,sans-serif;background:#fff;border:1px solid #a6b2c3;color:#1f3c71;border-radius:4px;padding:7px 12px;cursor:pointer}
+.refresh-tools span{font:400 12px Barlow,Arial,sans-serif;color:#667687}
+.filter-shell{margin:0 0 18px;border:1px solid #dce3e9;border-radius:5px;background:#fafcfd}
+.filter-group{padding:12px 16px}
+.filter-title{letter-spacing:.08em}
+#dashboard>.map-section{margin-top:0}
+.map-section>.desk-intro{margin:0 0 15px;padding:0;border:0;display:flex;align-items:end;justify-content:space-between;gap:25px}
+.map-section>.desk-intro h2{font-size:clamp(22px,2.3vw,32px)}
+.map-section>.desk-intro p{max-width:500px}
+.map-section>.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 18px;border-top:1px solid #cbd5e0;border-bottom:1px solid #cbd5e0;background:white}
+.map-section>.kpis .card{padding:13px 18px 15px;background:white;border:0;border-right:1px solid #dce3e9;border-radius:0;box-shadow:none;min-height:0}
+.map-section>.kpis .card:last-child{border-right:0}
+.map-section>.kpis .value{font-size:clamp(24px,2.4vw,37px);font-weight:700;color:#1f3c71}
+.map-section>.kpis .caption{font-size:11px}
+.map-section>.panel{border:0;padding:0;box-shadow:none}
+.map-header{padding:0 0 14px;border-bottom:1px solid #dce3e9}
+.map-layout.map-layout-editorial{display:grid;grid-template-columns:minmax(0,2.15fr) minmax(280px,.85fr);gap:18px;align-items:stretch;margin-top:15px}
+.map-layout-editorial .map-canvas{grid-column:1;grid-row:1;min-width:0;border:1px solid #dce3e9;border-radius:5px;background:#f8fafb}
+.map-layout-editorial .map-sidebar{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:12px}
+#map{height:680px;min-height:500px;background:#f8fafb}
+.map-card{border:1px solid #dce3e9;border-radius:5px;padding:15px;background:#fff}
+.map-card:nth-child(2){flex:1}
+.map-gradient{border-radius:3px}
+.map-controls .map-segments button.active{background:#1f3c71;color:white}
+.freshness-note{margin:12px 0 0;font:400 12px/1.5 Barlow,Arial,sans-serif;color:#687583}
+#dashboard>.section:not(.map-section){margin-top:48px}
+#dashboard>.section:not(.map-section)>.panel{border-top:2px solid #1f3c71;padding-top:18px}
+@media(max-width:1050px){main{padding:24px 24px 65px}.map-layout.map-layout-editorial{grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr)}#map{height:590px}}
+@media(max-width:780px){.map-section>.desk-intro{display:block}.map-section>.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.map-section>.kpis .card:nth-child(2){border-right:0}.map-section>.kpis .card:nth-child(-n+2){border-bottom:1px solid #dce3e9}.map-layout.map-layout-editorial{grid-template-columns:1fr}.map-layout-editorial .map-canvas{grid-column:1;grid-row:1}.map-layout-editorial .map-sidebar{grid-column:1;grid-row:2;display:grid;grid-template-columns:1fr 1fr}.map-layout-editorial .map-sidebar .map-card:nth-child(2){grid-column:1/-1;grid-row:1}#map{height:540px}}
+@media(max-width:500px){main{padding:18px 14px 55px}.map-layout-editorial .map-sidebar{display:flex}.map-section>.kpis .card{padding:12px}.map-section>.kpis .value{font-size:27px}#map{height:440px}}
+</style><style>
+/* Version 7 — unified, compact, borderless METLN atlas */
+:root{--atlas-navy:#1f3c71;--atlas-teal:#007f70;--atlas-orange:#fa963d;--atlas-red:#d83d27;--atlas-sage:#78aa92}
+main{max-width:1480px;padding:22px 28px 58px}
+.top.editorial-header{border:0;padding-bottom:8px;margin-bottom:6px}
+.refresh-tools{margin-bottom:12px}
+.filter-shell{background:#fff!important;border:0!important;border-radius:0!important;margin:0 0 12px!important;box-shadow:none!important}
+.filter-shell .filter-group{border:0!important;padding:8px 16px 8px 0!important}
+.filter-shell .filter-group+.filter-group{border-left:0!important}
+.filter-title,.desk-kicker,.map-small{color:var(--atlas-teal)!important}
+#dashboard>.map-section,.map-section,.map-section>.panel,.map-layout,.map-canvas,.map-card,.map-sidebar,#map,.leaflet-container{background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+.map-section{padding:0!important;margin:0!important}
+.map-section>.desk-intro{margin:0 0 10px!important;gap:12px}
+.map-section>.desk-intro h2{margin:3px 0 0}
+.map-section>.kpis{border:0!important;gap:0;margin:0 0 14px!important;background:transparent!important}
+.map-section>.kpis .card{border:0!important;box-shadow:none!important;background:transparent!important;padding:7px 16px 9px!important;min-height:0!important}
+.map-section>.kpis .card:first-child{padding-left:0!important}
+.map-section>.kpis .card:before{display:none!important}
+.map-section>.kpis .card .label{padding:0!important;color:#566779}
+.map-section>.kpis .card .value{margin:4px 0 2px!important;line-height:1.1}
+.map-section>.kpis .card:nth-child(1) .value{color:var(--atlas-navy)!important}
+.map-section>.kpis .card:nth-child(2) .value{color:var(--atlas-teal)!important}
+.map-section>.kpis .card:nth-child(3) .value{color:#b75b14!important}
+.map-section>.kpis .card:nth-child(4) .value{color:#426b63!important}
+.map-header{border:0!important;padding:0!important;margin-bottom:7px!important;gap:10px}
+.map-header h2{font-size:24px!important;margin:0 0 2px!important}
+.map-layout.map-layout-editorial{grid-template-columns:minmax(0,2.4fr) minmax(265px,.9fr)!important;gap:12px!important;margin-top:6px!important;align-items:start!important}
+.map-layout-editorial .map-canvas{border:0!important;overflow:hidden}
+#map{height:545px!important;min-height:0!important;margin:0!important}
+.map-layout-editorial .map-sidebar{gap:13px!important;display:flex;flex-direction:column}
+.map-sidebar .map-card{padding:4px 0 9px!important;flex:initial!important;min-height:0!important}
+.map-sidebar .map-card:nth-child(2){flex:initial!important}
+.map-gradient{height:10px;margin:8px 0 3px}
+.map-muted{margin:8px 0 0;line-height:1.35}
+.map-detail-title{margin:7px 0!important;font-size:21px}
+.map-stat{border:0!important;padding:5px 0!important}
+.map-rank-row{padding:4px 0!important}
+.map-ranks{gap:12px!important}
+.map-reset{border:0!important;box-shadow:0 1px 6px #1f3c7118}
+.map-segments{background:transparent!important;border:0!important;padding:0!important;gap:5px!important}
+.map-segments button,.party-pills button,.compare-pills button,.tabs button{background:#fff!important;color:#415267!important;border:2px solid transparent!important;border-radius:999px!important;box-shadow:none!important;padding:7px 11px!important}
+.map-segments button.active,.party-pills button.active,.compare-pills button.active,.tabs button.active{background:#fff!important;color:var(--pill-color,var(--atlas-navy))!important;border-color:var(--pill-color,var(--atlas-navy))!important;box-shadow:none!important}
+.map-segments button[data-layer="town"]{--pill-color:#1f3c71}
+.map-segments button[data-layer="county"]{--pill-color:#007f70}
+.map-segments button[data-layer="house"]{--pill-color:#c36a1f}
+.map-segments button[data-layer="senate"]{--pill-color:#d83d27}
+.party-pills button[data-party="D"]{--pill-color:#1f3c71}
+.party-pills button[data-party="R"]{--pill-color:#d83d27}
+.party-pills button[data-party="U"]{--pill-color:#677483}
+.party-pills button[data-party="G"]{--pill-color:#007f70}
+.party-pills button[data-party="L"]{--pill-color:#a16b00}
+.compare-pills button[data-year="2022"]{--pill-color:#b75b14}
+.compare-pills button[data-year="2024"]{--pill-color:#007f70}
+.map-segments button:focus-visible,.party-pills button:focus-visible,.compare-pills button:focus-visible{outline:2px solid #1f3c71;outline-offset:2px}
+.freshness-note{margin-top:5px!important}
+#dashboard>.section:not(.map-section){margin-top:28px!important}
+#dashboard>.section:not(.map-section)>.panel{border:0!important;padding-top:10px!important}
+@media(max-width:1050px){main{padding:20px 20px 50px}.map-layout.map-layout-editorial{grid-template-columns:minmax(0,1.5fr) minmax(245px,1fr)!important}#map{height:500px!important}}
+@media(max-width:780px){.map-layout.map-layout-editorial{grid-template-columns:1fr!important;gap:8px!important}.map-layout-editorial .map-sidebar{grid-column:1;grid-row:2;display:grid;grid-template-columns:1fr 1fr;gap:14px!important}.map-layout-editorial .map-sidebar .map-card:nth-child(2){grid-column:1/-1;grid-row:1}.map-section>.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.map-section>.kpis .card{border:0!important;padding:8px 10px!important}#map{height:475px!important}}
+@media(max-width:500px){main{padding:15px 12px 42px}.map-section>.desk-intro{margin-bottom:7px!important}.map-layout-editorial .map-sidebar{display:flex;gap:10px!important}.map-header{align-items:start}.map-controls{gap:5px}.map-segments button{padding:6px 8px!important}#map{height:410px!important}.map-section>.kpis .card .value{font-size:26px!important}}
+
+</style><style>
+/* Version 8 — larger Maine map and tighter surrounding canvas */
+.map-layout.map-layout-editorial{grid-template-columns:minmax(0,2.85fr) minmax(250px,.85fr)!important;gap:10px!important}
+#map{height:725px!important;min-height:0!important}
+.map-layout-editorial .map-canvas{min-height:0!important}
+@media(max-width:1050px){.map-layout.map-layout-editorial{grid-template-columns:minmax(0,2fr) minmax(245px,.85fr)!important}#map{height:650px!important}}
+@media(max-width:780px){.map-layout.map-layout-editorial{grid-template-columns:1fr!important}#map{height:610px!important}}
+@media(max-width:500px){#map{height:490px!important}}
+</style><style>
+/* Version 9: tightly framed map with no floating reset arrow */
+main{max-width:1320px!important}
+.map-layout.map-layout-editorial{
+  grid-template-columns:minmax(0, 740px) minmax(300px,1fr)!important;
+  gap:18px!important;
+  justify-content:center!important;
+}
+#map{height:805px!important;min-height:0!important}
+.map-layout-editorial .map-canvas{width:100%!important;overflow:hidden!important}
+.map-reset{display:none!important}
+@media(max-width:1050px){
+  .map-layout.map-layout-editorial{grid-template-columns:minmax(0, 1.65fr) minmax(250px,1fr)!important}
+  #map{height:690px!important}
+}
+@media(max-width:780px){
+  .map-layout.map-layout-editorial{grid-template-columns:minmax(0,1fr)!important}
+  #map{height:650px!important}
+}
+@media(max-width:500px){#map{height:510px!important}}
+
+/* V10 — warm editorial map and a compact local explorer */
+:root{--map-warm-1:#f1e9f8;--map-warm-2:#d8c5ed;--map-warm-3:#b595d6;--map-warm-4:#8d66b9;--map-warm-5:#593783}
+#mapGradient,.map-gradient{background:linear-gradient(90deg,var(--map-warm-1) 0%,var(--map-warm-2) 24%,var(--map-warm-3) 49%,var(--map-warm-4) 74%,var(--map-warm-5) 100%)!important}
+.map-sidebar .map-small{color:#593783!important}
+.map-detail-title{color:#1f3c71!important}
+.map-rank-row b{color:#593783!important}
+.local-explorer{margin-top:42px!important}
+.local-explorer .panel{border:0!important;background:#fff!important;box-shadow:none!important;padding:0!important}
+.local-heading{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:20px}
+.local-heading h2{margin:4px 0 5px}
+.local-heading .note{margin:0}
+.local-filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.local-filters label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px;color:#1f3c71}
+.local-filters input,.local-filters select{min-width:175px;max-width:245px;border:1px solid #d9dfe7!important;background:#fff;border-radius:7px;padding:9px 12px;font:500 14px Barlow,Arial,sans-serif}
+.local-table{overflow-x:auto;overflow-y:visible;max-height:none!important;border-top:2px solid #1f3c71}
+.local-table table{width:100%;border-collapse:collapse}
+.local-table th{padding:13px 10px;text-transform:uppercase;font-size:11px;letter-spacing:.08em;color:#627185;text-align:left}
+.local-table th:not(:first-child),.local-table td:not(:first-child){text-align:right}
+.local-table td{padding:13px 10px;border-top:1px solid #edf0f3;font-variant-numeric:tabular-nums}
+.local-table tr:hover td{background:#fff8f2}
+.local-rate{color:#593783;font-weight:700}
+.local-empty{text-align:center!important;color:#6c7786;padding:30px 12px!important}
+.local-bottom{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:13px;flex-wrap:wrap}
+.local-pager{display:flex;align-items:center;gap:13px;font-size:13px;color:#627185}
+.local-pager button{background:#fff!important;color:#1f3c71!important;border:1.5px solid #1f3c71!important;border-radius:999px!important;padding:7px 15px!important;font:600 13px Barlow,Arial,sans-serif;cursor:pointer}
+.local-pager button:disabled{border-color:#e1e5eb!important;color:#a4aab3!important;cursor:default}
+.local-pager button:not(:disabled):hover{background:#f6f8fc!important}
+@media(max-width:780px){.local-heading{align-items:start;flex-direction:column;gap:12px}.local-filters{width:100%}.local-filters label{flex:1;min-width:145px}.local-filters input,.local-filters select{width:100%;min-width:0;max-width:none}.local-table th,.local-table td{padding:11px 7px}.local-bottom{align-items:start}}
+</style><style>
+/* V11: lavender-to-plum geography scale and one continuous editorial canvas */
+:root{--atlas-map-1:#f1e9f8;--atlas-map-2:#d8c5ed;--atlas-map-3:#b595d6;--atlas-map-4:#8d66b9;--atlas-map-5:#593783}
+#map,.leaflet-container{background:#fff!important}
+.map-scale-bar,.map-gradient,.map-legend-gradient,#mapGradient{background:linear-gradient(90deg,#f1e9f8,#d8c5ed,#b595d6,#8d66b9,#593783)!important}
+.selection-context{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;color:#635779;font-size:12px;letter-spacing:.06em;font-weight:700}
+.selection-context strong{font-size:17px;letter-spacing:0;color:#392650;margin-left:7px}
+#resetMapSelection{border:1px solid #b595d6;background:#fff;color:#593783;border-radius:999px;padding:7px 13px;cursor:pointer;font:600 12px Barlow,Arial,sans-serif}
+#resetMapSelection[hidden]{display:none!important}
+.leaflet-overlay-pane svg{overflow:visible}
+
+/* V12 — single-line toolbar, responsive map palettes, clearer data separation */
+.filter-shell{display:grid!important;grid-template-columns:minmax(0,2.2fr) minmax(170px,.85fr) minmax(190px,.9fr);gap:18px!important;align-items:end!important;border:0!important;padding:8px 0 16px!important;margin:12px 0 16px!important}
+.filter-group{width:auto!important;min-width:0!important;display:flex!important;align-items:end!important;flex-wrap:nowrap!important;gap:9px!important}
+.filter-title{align-self:center!important;margin:0 8px 8px 0!important;letter-spacing:.055em!important;font-size:11px!important;color:#007f70!important}
+.filter-group:first-child .filter-title{display:none!important}
+.filter-field{min-width:0!important;flex:1!important;white-space:nowrap!important}
+.filter-field select{min-width:0!important;width:100%!important;border:1px solid #d7dce5!important;border-radius:999px!important;padding:9px 32px 9px 13px!important;font-size:13px!important;font-weight:600!important;min-height:40px!important}
+.party-select-label select{border-color:#8d66b9!important;color:#593783!important}
+.compare-select-label select{border-color:#007f70!important;color:#006a60!important}
+#mapGradient,.map-scale-bar,.map-gradient,.map-legend-gradient{background:var(--active-map-gradient,linear-gradient(90deg,#f1e9f8,#d8c5ed,#b595d6,#8d66b9,#593783))!important}
+.section.two{gap:0!important;grid-template-columns:1fr 1fr!important}
+.section.two>.panel:first-child{padding-right:28px!important;border-right:1px solid #dce1e8!important}
+.section.two>.panel:last-child{padding-left:28px!important}
+@media(max-width:1120px){.filter-shell{grid-template-columns:1fr 1fr!important}.filter-group:first-child{grid-column:1/-1}.filter-title{display:none!important}}
+@media(max-width:700px){.filter-shell{grid-template-columns:1fr!important}.filter-group:first-child{grid-column:auto}.filter-group{flex-wrap:wrap!important}.section.two{grid-template-columns:1fr!important}.section.two>.panel:first-child{border-right:0!important;border-bottom:1px solid #dce1e8!important;padding:0 0 20px!important}.section.two>.panel:last-child{padding:20px 0 0!important}}
+</style><style>
+/* V13 — compact filters; original party pills restored */
+.filter-shell{display:grid!important;grid-template-columns:minmax(255px,1fr) minmax(440px,1.7fr) auto!important;align-items:center!important;gap:16px 22px!important;padding:8px 0 15px!important;margin:8px 0 14px!important}
+.filter-shell .filter-group{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:nowrap!important;gap:8px!important;padding:0!important;height:auto!important;min-width:0!important}
+.filter-shell .filter-group:first-child{display:grid!important;grid-template-columns:115px minmax(125px,1fr)!important;gap:8px!important}
+.filter-shell .filter-title{display:none!important}
+.filter-shell .filter-field{flex:none!important;width:auto!important;font-size:11px!important;white-space:nowrap!important}
+.filter-shell .filter-field select{width:100%!important;min-width:0!important;max-width:240px!important;border-radius:999px!important;min-height:36px!important;padding:7px 30px 7px 12px!important}
+.filter-shell .filter-group:first-child .filter-field select{max-width:none!important}
+.v13-hidden{display:none!important}
+.v13-visible{display:block!important;position:static!important;width:auto!important;height:auto!important;overflow:visible!important;clip:auto!important;margin:0!important;padding:0!important}
+.party-pills,.compare-pills{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:5px!important}
+.party-pills button,.compare-pills button{border-radius:999px!important;border:1.5px solid transparent!important;background:transparent!important;box-shadow:none!important;padding:7px 9px!important;font:600 12px Barlow,Arial,sans-serif!important;white-space:nowrap!important;color:#48556a!important}
+.party-pills button.active,.compare-pills button.active{background:#fff!important;color:var(--pill-color,#593783)!important;border-color:var(--pill-color,#593783)!important;box-shadow:none!important}
+.party-pills button[data-party="ALL"]{--pill-color:#593783}
+.party-pills button[data-party="NL"]{--pill-color:#555}
+.party-pills button:hover,.compare-pills button:hover{background:#f5f3f8!important}
+.party-pills button:focus-visible,.compare-pills button:focus-visible{outline:2px solid #1f3c71!important;outline-offset:2px}
+@media(max-width:1260px){.filter-shell{grid-template-columns:1fr!important;gap:8px!important}.filter-shell .filter-group:first-child{grid-template-columns:115px minmax(125px,220px)!important}.filter-shell .filter-group{flex-wrap:wrap!important}}
+@media(max-width:600px){.filter-shell .filter-group:first-child{grid-template-columns:1fr 1fr!important}.party-pills button,.compare-pills button{font-size:11px!important;padding:7px 8px!important}}
+</style><style>
+/* V14: genuinely compact geography controls with inset chevrons */
+@media (min-width:1261px) {
+  .filter-shell {
+    grid-template-columns: 405px minmax(0,1fr) auto !important;
+    column-gap: 18px !important;
+  }
+}
+.filter-shell .filter-group:first-child {
+  grid-template-columns: 160px 225px !important;
+  gap: 10px !important;
+  justify-content: start !important;
+}
+.filter-shell .filter-group:first-child .filter-field {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+.filter-shell #geography,
+.filter-shell #area {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 39px !important;
+  padding: 8px 34px 8px 14px !important;
+  border-radius: 999px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-color: #fff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2339475c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 13px center !important;
+  background-size: 14px 14px !important;
+  font-size: 13px !important;
+  text-overflow: ellipsis;
+}
+@media (max-width: 600px) {
+  .filter-shell .filter-group:first-child {
+    grid-template-columns: minmax(145px, 0.8fr) minmax(0, 1.2fr) !important;
+  }
+}
+
+/* V15 — map-driven geography and cleaner historical comparisons */
+.compare-pills button{background:#eff2f4!important;border-color:transparent!important;color:#4c5868!important;padding:9px 15px!important;display:inline-flex!important;align-items:center;gap:7px}
+.compare-pills button strong{font-weight:750;font-size:13px}
+.compare-pills button span{font-size:12px;font-weight:500}
+.compare-pills button.active{background:#007f70!important;color:white!important;border-color:#007f70!important}
+.compare-pills button:hover:not(.active){background:#e3e8ec!important}
+.map-canvas,#map,.leaflet-container{background:#fdfcfb!important}
+.leaflet-tile-pane{filter:saturate(.5)}
+.pace-panel{padding-top:8px!important}
+.pace-panel .toolbar{margin-bottom:14px!important}
+.pace-panel .pace-snapshot{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px!important;margin:0 0 20px!important;border:0!important;padding:0!important}
+.pace-panel .pace-mini{border:0!important;border-left:4px solid var(--accent)!important;background:#f7f8fa!important;border-radius:4px!important;padding:12px 15px!important;min-width:0!important}
+.pace-panel .mini-name{font-weight:650!important;color:#526175!important;font-size:12px!important}
+.pace-panel .mini-value{font-size:26px!important;line-height:1.15!important;color:#1b2d40!important}
+.pace-panel .mini-detail{font-size:11px!important}
+.pace-panel .pace-chartbox{height:310px!important}
+@media(max-width:650px){.pace-panel .pace-snapshot{gap:6px!important}.pace-panel .pace-mini{padding:9px!important}.pace-panel .mini-value{font-size:20px!important}.pace-panel .pace-chartbox{height:290px!important}}
+</style>
+<style>
+/* V16 — readable separation without boxed dashboard modules */
+@media (min-width:701px){
+  #dashboard .section.two{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:0!important;align-items:start!important}
+  #dashboard .section.two > .panel:first-child{border-right:1px solid #d9dfe8!important;padding-right:clamp(18px,2vw,36px)!important;margin-right:0!important}
+  #dashboard .section.two > .panel:last-child{padding-left:clamp(18px,2vw,36px)!important}
+}
+@media (max-width:700px){
+  #dashboard .section.two{display:grid!important;grid-template-columns:1fr!important}
+  #dashboard .section.two > .panel:first-child{border-right:0!important;border-bottom:1px solid #d9dfe8!important;padding:0 0 24px!important}
+  #dashboard .section.two > .panel:last-child{padding:24px 0 0!important}
+}
+/* Basemap is supporting context, never the focal layer. */
+.leaflet-tile-pane{opacity:.85}
+</style>
+<style>
+/* v17 — richer basemap, translucent map fill and in-table rate bars */
+#map,.leaflet-container{background:#fff!important}
+.rate-cell{display:flex;align-items:center;justify-content:flex-end;gap:12px;white-space:nowrap}
+.rate-track{height:9px;width:112px;max-width:52%;border-radius:999px;background:#ece7f3;overflow:hidden;flex-shrink:0}
+.rate-track span{display:block;height:100%;background:#7654a7;border-radius:999px}
+.local-rate{min-width:49px;text-align:right;font-variant-numeric:tabular-nums}
+#area option{text-transform:none}
+@media(max-width:600px){.rate-track{width:64px}.rate-cell{gap:6px}}
+</style><style>
+/* v18: Neutral Positron tiles remain legible under translucent election polygons. */
+.leaflet-tile-pane{opacity:1!important;filter:none!important}
+#map{overscroll-behavior:contain}
+/* v19: Neutral no-key tiles and readable 0–100% community mini charts. */
+.leaflet-tile-pane{filter:grayscale(1) brightness(1.09) contrast(.78)!important;opacity:.85!important}
+.rate-track{width:150px;max-width:none;flex-shrink:1;background:#eeeaf4}
+.rate-track span{background:#7752a4}
+.rate-cell{justify-content:flex-end;gap:10px}
+@media(max-width:650px){.rate-track{width:80px}}
+
+/* V20: map selection action and unboxed contextual comparison */
+.map-header .map-controls{gap:12px!important}
+#resetMapSelection{background:#fff;border:1.5px solid #a987d1;border-radius:999px;color:#65418b;font:600 13px Barlow,Arial,sans-serif;padding:8px 13px;white-space:nowrap;cursor:pointer;box-shadow:none}
+#resetMapSelection:hover{background:#f5effb}
+#resetMapSelection[hidden]{display:none!important}
+.area-context{padding-top:16px!important;margin-top:10px!important;border-top:1px solid #e6e0ee!important}
+.area-context .context-title{font-size:17px;font-weight:700;margin:7px 0 14px}
+.context-row,.context-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;margin:8px 0 5px}
+.context-row strong,.context-summary strong{font-variant-numeric:tabular-nums}
+.context-track{height:7px;border-radius:10px;background:#f1eef4;overflow:hidden;margin-bottom:12px}
+.context-track>div{height:100%;border-radius:10px}
+.context-summary{padding-top:9px;margin-top:10px;border-top:1px solid #efedf2}
+@media(max-width:760px){.map-header .map-controls{justify-content:flex-start}#resetMapSelection{order:3}}
+</style><style>
+/* V21: one purpose per map sidebar section, with a compact 14-day trend. */
+.area-context{padding-top:14px!important}
+.activity-heading{font-size:14px;font-weight:700;color:#24344b;margin-top:8px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.activity-heading span{font-size:11px;font-weight:500;color:#7b8798;white-space:nowrap}
+.activity-place{font-size:12px;color:#667085;margin-top:3px}
+.activity-spark{width:100%;height:auto;display:block;margin-top:8px;overflow:visible}
+.activity-axis{display:flex;justify-content:space-between;color:#8793a3;font-size:11px;margin-top:-3px}
+.activity-note{font-size:11px!important;line-height:1.4;margin-top:8px!important}
+</style>
+<style>
+/* V22: compact, legible daily bars and light tooltip surfaces */
+.activity-bars{height:120px;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));align-items:end;gap:5px;border-bottom:1px solid #d9dfe8;margin-top:16px;padding:0 2px}
+.activity-day{height:100%;min-width:0;position:relative;display:flex;align-items:flex-end;justify-content:center;cursor:default;outline:none}
+.activity-bar{width:100%;max-width:24px;border-radius:3px 3px 0 0;opacity:.82;transition:opacity .15s ease,filter .15s ease}
+.activity-day:hover .activity-bar,.activity-day:focus-visible .activity-bar{opacity:1;filter:saturate(1.2)}
+.activity-day-tip{display:none;position:absolute;z-index:50;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);min-width:115px;background:#faf8fd;border:1px solid #ddd4e8;border-radius:8px;box-shadow:0 4px 14px #27324a1a;padding:8px 10px;color:#263448;font:12px Barlow,Arial,sans-serif;pointer-events:none;text-align:left;white-space:nowrap}
+.activity-day-tip strong,.activity-day-tip span{display:block}.activity-day-tip span{color:#593783;margin-top:2px;font-weight:600}
+.activity-day:hover .activity-day-tip,.activity-day:focus-visible .activity-day-tip{display:block}
+.activity-ticks{display:flex;justify-content:space-between;color:#7b8798;font-size:11px;margin-top:7px}
+.activity-footnote{color:#778398;font-size:11px;line-height:1.4;margin:9px 0 0}
+.leaflet-tooltip{background:#faf8fd!important;color:#263448!important;border:1px solid #ddd4e8!important;border-radius:8px!important;box-shadow:0 4px 14px #27324a1a!important;font-family:Barlow,Arial,sans-serif!important;font-weight:600!important;padding:7px 10px!important}
+.leaflet-tooltip:before{border-top-color:#ddd4e8!important}
+
+/* Version 23: publication methodology and AI disclosure */
+.about-data{margin-top:42px;padding-top:26px;border-top:1px solid #e5e9ee}
+.about-heading{margin-bottom:20px}
+.about-heading h2{margin:6px 0 5px;font-size:clamp(24px,2.5vw,32px);font-weight:600;letter-spacing:-.025em}
+.about-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(250px,1fr);gap:clamp(28px,5vw,72px)}
+.about-part h3{font-size:18px;font-weight:650;margin:0 0 13px;color:#172b40}
+.about-part h4{font-size:14px;margin:22px 0 8px;color:#172b40}
+.about-part p,.about-part li{font-size:14px;line-height:1.7;color:#465264}
+.about-part p{margin:0 0 13px}
+.about-part strong{color:#25364a}
+.source-links{margin:0 0 12px;padding-left:20px}
+.source-links li{margin:4px 0}
+.source-links a{color:#1f3c71;text-decoration:underline;text-underline-offset:3px}
+.source-links a:hover{color:#007f70}
+.about-part .about-source-note{font-size:12px;color:#697586}
+@media(max-width:720px){.about-grid{grid-template-columns:1fr;gap:24px}.about-data{margin-top:28px}}
+</style></head><body><main><header class="top editorial-header"><div><div class="eyebrow">MAINE POINT / ELECTIONS</div><h1>Maine Votes</h1><div class="sub">Tracking how Maine votes, one community at a time.</div></div><div class="note" id="asof">Loading election data…</div></header><div class="refresh-tools"><button id="refreshData" type="button">Check for new data</button><span id="refreshStatus" role="status">Updates depend on the latest published state data</span></div><div aria-label="Dashboard filters" class="filter-shell"><div class="filter-group"><span class="filter-title">EXPLORE AREA</span><label class="filter-field">Geography<select id="geography"><option value="state">Statewide</option><option value="county">County</option><option value="town">Town / municipality</option><option value="house">House district</option><option value="senate">Senate district</option><option value="congress">Congressional district</option></select></label><label class="filter-field">Area<select id="area"><option value="ALL">All of Maine</option></select></label></div><div class="filter-group party-group"><span class="filter-title">REGISTRATION PARTY</span><label class="filter-field party-select-label v13-hidden">Party<select aria-label="Registration party" id="partyQuick"><option value="ALL">Everyone</option><option value="D">Democratic</option><option value="R">Republican</option><option value="U">Unenrolled</option><option value="G">Green</option><option value="L">Libertarian</option><option value="NL">Other</option></select></label><div class="v13-visible"><div aria-label="Filter by registration party" class="party-pills" id="partyPills" role="group"><button class="active" data-party="ALL" type="button">Everyone</button><button data-party="D" type="button"><i style="--dot:#1f3c71"></i>Dem</button><button data-party="R" type="button"><i style="--dot:#d83d27"></i>Rep</button><button data-party="U" type="button"><i style="--dot:#858a95"></i>Unenrolled</button><button data-party="G" type="button"><i style="--dot:#007f70"></i>Green</button><button data-party="L" type="button"><i style="--dot:#d49a00"></i>Lib</button><button data-party="NL" type="button">Other</button></div></div><label class="sr-only" for="party">Party</label><select class="sr-only" id="party"><option value="ALL">All registrations</option><option value="D">Democratic</option><option value="R">Republican</option><option value="U">Unenrolled</option><option value="G">Green</option><option value="L">Libertarian</option><option value="NL">Other / no label</option></select></div><div class="filter-group"><span class="filter-title">COMPARE WITH</span><label class="filter-field compare-select-label v13-hidden">Election<select aria-label="Compare with" id="compareQuick"><option value="2024">2024 · Presidential</option><option value="2022">2022 · Midterm</option></select></label><div class="v13-visible"><div aria-label="Historical comparison" class="compare-pills" id="comparePills" role="group"><button data-year="2022" type="button"><strong>2022</strong> <span>Midterm</span></button><button class="active" data-year="2024" type="button"><strong>2024</strong> <span>Presidential</span></button></div></div><label class="sr-only" for="compare">Historical comparison</label><select class="sr-only" id="compare"><option value="2024">2024 presidential</option><option value="2022">2022 gubernatorial</option></select></div></div><div class="loading" id="loading">Loading and aggregating voting records. This may take a few seconds on the first visit.</div><div hidden="" id="dashboard"><section class="section map-section"><div class="desk-intro"><div><span class="desk-kicker">2026 GENERAL ELECTION</span><h2>Explore absentee voting across Maine</h2></div><p>Select a county, municipality or legislative district to see the numbers behind the map. The statewide totals are a starting point.</p></div><div class="kpis"><div class="card"><div class="label">Accepted ballots 2026</div><div class="value" id="returned">—</div><div class="caption">Through the latest source snapshot</div></div><div class="card"><div class="label">Ballot requests 2026</div><div class="value" id="requested">—</div><div class="caption">Unique request dates, excluding duplicate records</div></div><div class="card"><div class="label">Return rate 2026</div><div class="value" id="rate">—</div><div class="caption">Accepted / requested</div></div><div class="card"><div class="label">Registered voter share</div><div class="value" id="share">—</div><div class="caption">Accepted / March 2026 active registered voters</div></div></div><div class="panel"><div class="map-header"><div><h2>Where ballots are being returned</h2><div class="note">Choose a geography and measure. Click any shaded area to explore its results.</div></div><div class="map-controls"><div class="map-segments" id="mapSegments"><button class="active" data-layer="town">Town</button><button data-layer="county">County</button><button data-layer="house">House</button><button data-layer="senate">Senate</button></div><label>Map measure<select id="mapMetric"><option value="rate">Absentee return rate</option><option value="returned">Accepted ballots</option><option value="requested">Ballots requested</option><option value="share">Registered voter share</option></select></label><select aria-label="Map boundaries" hidden="" id="mapLayer"><option value="town" selected>Towns and townships</option><option value="county">Counties</option><option value="house">House districts</option><option value="senate">Senate districts</option></select></div></div><div class="map-layout map-layout-editorial"><div class="map-canvas"><div id="map"></div></div><div class="map-sidebar"><div class="map-card"><div class="map-small" id="mapLegendTitle">ABSENTEE RETURN RATE</div><div class="map-gradient" id="mapGradient"></div><div class="map-scale" id="mapScale"><span>Lower</span><span>Higher</span></div><p class="map-muted">Light gray indicates unavailable data. Shades reflect the selected registration party and map measure.</p></div><div class="map-card" id="mapDetails"><div class="map-detail-title">Hover over or click an area</div><p class="map-muted">Its numbers appear here. Select an area to filter the entire dashboard.</p></div><div class="map-card"><div class="map-ranks"><div><div class="map-small">HIGHEST</div><div id="mapHighest"></div></div><div><div class="map-small">LOWEST</div><div id="mapLowest"></div></div></div></div><div class="map-card area-context" id="areaContext" aria-live="polite"></div></div></div><p class="map-muted">Party filters refer to voter registration, not candidate choice. Districts may have different registered-voter denominator availability.</p></div><p class="freshness-note">Data update note: This page checks its published data.json file for changes. It cannot retrieve new state records until the source file is refreshed by a separate publishing process.</p></section><section class="section"><div class="panel pace-panel"><div class="toolbar"><div><h2>Voting pace, election by election</h2><div class="note">Cumulative activity, aligned by the number of days until Election Day</div></div><div class="tabs" id="paceToggle"><button class="active" data-v="returned">Returned</button><button data-v="requested">Requested</button></div></div><div aria-live="polite" class="pace-snapshot" id="paceSnapshot"></div><div class="chartbox pace-chartbox"><canvas id="paceChart"></canvas></div></div></section><section class="section"><div class="panel"><div class="toolbar"><div><h2>Daily ballot activity</h2><div class="note">2026 daily counts</div></div><div class="tabs" id="dailyToggle"><button class="active" data-v="party">By party</button><button data-v="method">By return method</button></div></div><div class="chartbox"><canvas id="dailyChart"></canvas></div></div></section><section class="section two"><div class="panel"><h2>Accepted ballots by party</h2><div class="note">Registration party, not candidate preference</div><div class="scroll"><table><thead><tr><th>Party</th><th>2026</th><th>2024*</th><th>2022*</th></tr></thead><tbody id="partyRows"></tbody></table></div><div class="note">*Historical totals through the equivalent number of days before Election Day.</div></div><div class="panel"><h2>Voting by method</h2><div class="note">Accepted 2026 ballots · method codes as provided by the state</div><div class="scroll"><table><thead><tr><th>Method code</th><th>Ballots</th><th>Share</th></tr></thead><tbody id="methodRows"></tbody></table></div></div></section><section class="section local-explorer" id="localExplorer"><div class="panel"><div class="local-heading"><div><span class="desk-kicker">LOOK CLOSER</span><h2>Find your community</h2><p class="note">Explore 2026 absentee voting totals without scrolling through a statewide directory.</p></div><div class="local-filters"><label>County<select id="localCounty"><option value="ALL">All counties</option></select></label><label>Municipality<input autocomplete="off" id="search" placeholder="Search by town name" type="search"/></label></div></div><div class="local-table"><table><thead><tr><th>Municipality</th><th>Accepted</th><th>Requested</th><th>Return rate · 0–100%</th></tr></thead><tbody id="townRows"></tbody></table></div><div class="local-bottom"><span aria-live="polite" class="note" id="townNote"></span><div class="local-pager"><button aria-label="Previous municipalities" id="localPrev" type="button">Previous</button><span aria-live="polite" id="localPage"></span><button aria-label="Next municipalities" id="localNext" type="button">Next</button></div></div></div></section></div><section class="section about-data" id="about-data" aria-labelledby="about-data-title">
+  <div class="about-heading"><span class="desk-kicker">TRANSPARENCY</span><h2 id="about-data-title">About this data</h2><p class="note">Sources, calculations and how this interactive was developed.</p></div>
+  <div class="about-grid">
+    <div class="about-part"><h3>Data sources and methodology</h3>
+      <p>Maine Votes uses absentee voting records published by the Maine Department of the Secretary of State, Bureau of Corporations, Elections and Commissions. It displays 2026 general election absentee ballot requests and accepted ballots, with comparisons to the 2022 and 2024 general elections.</p>
+      <p>The absentee return rate is accepted ballots divided by ballot requests. Geographic totals are aggregated from election records; repeated voter records are consolidated in processing. Registered voter share compares accepted ballots with the March 7, 2026 active registered voter report. That measure is <strong>not official turnout</strong>.</p>
+      <p>Data reflect the latest available published state records, not real-time ballot receipts. Municipal reporting and data entry can lag. Registration party is not a measure of candidate support, and absentee voting does not represent all votes cast.</p>
+      <h4>Official sources</h4>
+      <ul class="source-links">
+        <li><a href="https://www.maine.gov/sos/elections-voting/voter-data" target="_blank" rel="noopener noreferrer">Maine Secretary of State — Voter data and current absentee reports</a></li>
+        <li><a href="https://www.maine.gov/sos/elections-voting/voter-data/previous-absentee-data" target="_blank" rel="noopener noreferrer">Historical absentee voting data (2022 and 2024)</a></li>
+        <li><a href="https://www.maine.gov/sos/elections-voting/absenteelayout" target="_blank" rel="noopener noreferrer">Absentee data file layout and definitions</a></li>
+        <li><a href="https://www.maine.gov/sos/elections-voting/electoral-districts" target="_blank" rel="noopener noreferrer">Maine legislative district information</a></li>
+      </ul>
+      <p class="about-source-note">Municipality, county, Maine House district and Maine Senate district boundaries were obtained from the <a href="https://www.maine.gov/geolib/" target="_blank" rel="noopener noreferrer">Maine GeoLibrary</a> and converted to GeoJSON for this interactive map.</p>
+    </div>
+    <div class="about-part"><h3>AI disclosure</h3>
+      <p>Generative artificial intelligence was used primarily to assist with writing, developing and troubleshooting the HTML, CSS and JavaScript code for this interactive visualization. AI assistance also supported data-processing scripts and interactive functionality.</p>
+      <p>The underlying election figures come from publicly available government records, not AI-generated information. AI was not used to generate or estimate election results.</p>
+    </div>
+  </div>
+</section>
+<footer class="foot">Maine Votes · Source data: Maine Secretary of State. The 2026 figures are a partial reporting snapshot; 2022 and 2024 historical files are final. Figures may change as additional records are published.</footer></main><script>
+if(window.Chart){Object.assign(Chart.defaults.plugins.tooltip,{backgroundColor:'#faf8fd',titleColor:'#263448',bodyColor:'#263448',borderColor:'#ddd4e8',borderWidth:1,padding:11,cornerRadius:8,displayColors:true,boxWidth:9,boxHeight:9,titleFont:{family:'Barlow',weight:'700'},bodyFont:{family:'Barlow'}})}
+const $=id=>document.getElementById(id),fmt=n=>Math.round(n).toLocaleString('en-US'),pct=(a,b)=>b?((100*a/b).toFixed(1)+'%'):'—';let DB,rows=[],maps={},leaf,layer,paceChart,dailyChart,paceMode='returned',dailyMode='party';const dates={2022:'2022-11-08',2024:'2024-11-05',2026:'2026-11-03'},colors={D:'#1f3c71',R:'#d83d27',U:'#858a95',G:'#007f70',L:'#ad8c3a',NL:'#555'},names={D:'Democratic',R:'Republican',U:'Unenrolled',G:'Green',L:'Libertarian',NL:'Other'};const day=s=>Math.floor(Date.parse(s+'T00:00:00Z')/86400000);const diff=(y,d)=>day(dates[y])-day(d);const sum=a=>a.reduce((s,x)=>s+x,0);const labelOf=r=>r[1],valueOf=r=>r[9];const mapKeys={county:0,town:1,house:4,senate:3,congress:5};let townCounty={};
+function geographyMatches(r){let g=$('geography').value,a=$('area').value;if(a==='ALL'||g==='state')return true;return g==='town'?r[1]===a:g==='county'?townCounty[r[1]]===a:g==='house'?String(r[4])===a:g==='senate'?String(r[3])===a:g==='congress'?String(r[5])===a:true}
+function match(r){return geographyMatches(r)&&($('party').value==='ALL'||r[2]===$('party').value)}
+function series(y,k,cut=Infinity){let out=new Map();for(let r of rows)if(r[0]===y&&r[6]===k&&match(r)){let d=diff(y,r[7]);if(d>=cut)out.set(d,(out.get(d)||0)+r[9])}return out}
+function total(y,k,cut=Infinity){let n=0;for(let r of rows)if(r[0]===y&&r[6]===k&&match(r)&&diff(y,r[7])>=cut)n+=r[9];return n}
+function snapshot(){let max=rows.filter(r=>r[0]===2026).reduce((a,r)=>r[7]>a?r[7]:a,'');return max}
+function options(){let g=$('geography').value,a=$('area');let keys=g==='state'?[]:g==='town'?Object.keys(DB.registration):g==='county'?[...new Set(Object.values(townCounty))]:g==='house'?Array.from({length:151},(_,i)=>String(i+1)):g==='senate'?Array.from({length:35},(_,i)=>String(i+1)):['1','2'];let prev=a.value;a.innerHTML='<option value="ALL">All of Maine</option>'+keys.filter(Boolean).sort((x,y)=>x.localeCompare(y,undefined,{numeric:true})).map(k=>`<option value="${k}">${k}</option>`).join('');if(keys.includes(prev))a.value=prev}
+function regTotal(){let g=$('geography').value,a=$('area').value,p=$('party').value;if(!['state','town','county'].includes(g))return null;let n=0;for(let [town,parties] of Object.entries(DB.registration)){if(a!=='ALL'&&g==='town'&&town!==a)continue;if(a!=='ALL'&&g==='county'&&townCounty[town]!==a)continue;n+=p==='ALL'?(parties.TOTAL||0):(parties[p]||0)}return n}
+function render(){let cutoff=diff(2026,snapshot());let ret=sum(rows.filter(r=>r[0]===2026&&r[6]==='returned').map(r=>r[9])),req=sum(rows.filter(r=>r[0]===2026&&r[6]==='requested').map(r=>r[9]));let stateReg=Object.values(DB.registration).reduce((n,p)=>n+(p.TOTAL||0),0);$('returned').textContent=fmt(ret);$('requested').textContent=fmt(req);$('rate').textContent=pct(ret,req);$('share').textContent=pct(ret,stateReg);$('asof').textContent='2026 data through '+snapshot()+' · '+cutoff+' days before Election Day';updateSelectionHeading();renderPace(cutoff);renderDaily();renderTables(cutoff);renderTowns();paintMap()}
+function chart(id,existing,config){if(existing)existing.destroy();return new Chart($(id),config)}
+function renderPace(cut){
+  const years=[2026,2024,2022],selected=Number($('compare').value);
+  const first=60,days=Array.from({length:first+1},(_,i)=>first-i);
+  const datasets=years.map(y=>{
+    const m=series(y,paceMode,y===2026?cut:0),lastDay=y===2026?cut:0;let cumulative=0;
+    const data=days.map(d=>{if(d<lastDay)return null;cumulative+=m.get(d)||0;return cumulative});
+    return {label:y===2026?'2026':y===2024?'2024 presidential':'2022 midterm',data,borderColor:y===2026?'#1f3c71':y===2024?'#007f70':'#fa963d',borderWidth:y===2026?3.5:y===selected?2.8:1.8,borderDash:y===2026?[]:y===2024?[5,4]:[9,5],pointRadius:0,pointHitRadius:12,pointStyle:'circle',pointHoverBackgroundColor:y===2026?'#1f3c71':y===2024?'#007f70':'#fa963d',pointBackgroundColor:y===2026?'#1f3c71':y===2024?'#007f70':'#fa963d',pointBorderWidth:0,pointHoverRadius:5,pointHoverBorderWidth:0,tension:.14,spanGaps:false};
+  });
+  paceChart=chart('paceChart',paceChart,{type:'line',data:{labels:days.map(d=>d+' days'),datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:"line",boxWidth:24,boxHeight:3,padding:24,font:{family:'Barlow',size:12}}},tooltip:{usePointStyle:true,boxWidth:9,boxHeight:9,callbacks:{labelPointStyle:()=>({pointStyle:'circle',rotation:0}),label:x=>x.dataset.label+': '+fmt(x.parsed.y)}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v),font:{family:'Barlow'}}},x:{ticks:{maxTicksLimit:9,font:{family:'Barlow'}},title:{display:true,text:'Days before Election Day',font:{family:'Barlow'}}}}}});
+  const yearsShown=[2026,2024,2022],shade={2026:'#1f3c71',2024:'#007f70',2022:'#fa963d'};
+  $('paceSnapshot').innerHTML=yearsShown.map(y=>{const n=total(y,paceMode,cut);const title=y===2026?'2026 so far':y===2024?'2024 presidential':'2022 midterm';const note=y===2026?'Current · '+cut+' days out':'At '+cut+' days out';return '<div class="pace-mini" style="--accent:'+shade[y]+'"><div class="mini-name">'+title+'</div><div class="mini-value">'+fmt(n)+'</div><div class="mini-detail">'+note+'</div></div>'}).join('');
+}
+function renderDaily(){let grouped=new Map(),parties=new Set();for(let r of rows)if(r[0]===2026&&r[6]==='returned'&&match(r)){let k=dailyMode==='party'?r[2]:(r[8]||'Unknown');parties.add(k);let id=r[7]+'|'+k;grouped.set(id,(grouped.get(id)||0)+r[9])}let ds=[...new Set([...grouped.keys()].map(k=>k.split('|')[0]))].sort();let keys=[...parties].sort();dailyChart=chart('dailyChart',dailyChart,{type:'bar',data:{labels:ds.map(x=>x.slice(5)),datasets:keys.map((k,i)=>({label:names[k]||k,data:ds.map(d=>grouped.get(d+'|'+k)||0),backgroundColor:dailyMode==='party'?(colors[k]||'#888'):['#1f3c71','#007f70','#78aa92','#a3cdd2','#fa963d','#ffbb00'][i%6],stack:'a'}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:{label:x=>x.dataset.label+': '+fmt(x.parsed.y)}}},scales:{x:{stacked:true,ticks:{maxTicksLimit:8}},y:{stacked:true,beginAtZero:true}}}})}
+function renderTables(cut){let parties=['D','R','U','G','L','NL'];$('partyRows').innerHTML=parties.map(p=>{let count=y=>sum(rows.filter(r=>r[0]===y&&r[6]==='returned'&&geographyMatches(r)&&r[2]===p&&diff(y,r[7])>=cut).map(r=>r[9]));return `<tr><td><span class="swatch" style="background:${colors[p]||'#555'}"></span>${names[p]}</td><td>${fmt(count(2026))}</td><td>${fmt(count(2024))}</td><td>${fmt(count(2022))}</td></tr>`}).join('');let methods=new Map(),tot=0;for(let r of rows)if(r[0]===2026&&r[6]==='returned'&&match(r)){let k=r[8]||'Unknown';methods.set(k,(methods.get(k)||0)+r[9]);tot+=r[9]}$('methodRows').innerHTML=[...methods].sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<tr><td>${k}</td><td>${fmt(n)}</td><td>${pct(n,tot)}</td></tr>`).join('')}
+let localPage=0;
+const LOCAL_PAGE_SIZE=8;
+function titleCountyOptions(){const a=$('area');if($('geography').value!=='county')return;for(const o of a.options){if(o.value!=='ALL')o.textContent=String(o.textContent).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}}
+function renderTowns(){
+  let m=new Map();
+  for(let r of rows)if(r[0]===2026&&match(r)){
+    let key=r[1],o=m.get(key)||{q:0,r:0};
+    o[r[6]==='returned'?'r':'q']+=r[9];m.set(key,o);
+  }
+  const q=$('search').value.trim().toUpperCase();
+  const county=$('localCounty').value;
+  const list=[...m].filter(([t])=>t.includes(q)&&(county==='ALL'||townCounty[t]===county))
+    .sort((a,b)=>b[1].r-a[1].r||a[0].localeCompare(b[0]));
+  const pages=Math.max(1,Math.ceil(list.length/LOCAL_PAGE_SIZE));
+  localPage=Math.min(localPage,pages-1);
+  const shown=list.slice(localPage*LOCAL_PAGE_SIZE,(localPage+1)*LOCAL_PAGE_SIZE);
+  const safe=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  $('townRows').innerHTML=shown.map(([t,o])=>`<tr><td>${safe(t)}</td><td>${fmt(o.r)}</td><td>${fmt(o.q)}</td><td><div class="rate-cell"><div class="rate-track" role="meter" aria-label="Return rate for ${safe(t)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${o.q?Math.min(100,Math.max(0,100*o.r/o.q)).toFixed(1):0}"><span style="width:${o.q?Math.min(100,Math.max(0,100*o.r/o.q)):0}%"></span></div><span class="local-rate">${pct(o.r,o.q)}</span></div></td></tr>`).join('')||'<tr><td colspan="4" class="local-empty">No matching municipalities. Try another search or county.</td></tr>';
+  $('townNote').textContent=list.length?`${fmt(list.length)} matching municipalities · ordered by accepted ballots`:'No matches';
+  $('localPage').textContent=`${localPage+1} / ${pages}`;
+  $('localPrev').disabled=localPage===0;
+  $('localNext').disabled=localPage>=pages-1;
+}
+function setupLocalExplorer(){
+  const c=$('localCounty');
+  const counties=[...new Set(Object.values(townCounty).filter(Boolean))].sort();
+  c.innerHTML='<option value="ALL">All counties</option>'+counties.map(v=>`<option value="${v}">${v}</option>`).join('');
+  c.addEventListener('change',()=>{localPage=0;renderTowns()});
+  $('localPrev').addEventListener('click',()=>{localPage=Math.max(0,localPage-1);renderTowns()});
+  $('localNext').addEventListener('click',()=>{localPage++;renderTowns()});
+}
+
+let mapSelected=null,selectedOutline=null,hoverOutline=null,mapValueCache=new Map(),mapStatsCache=new Map(),mapBounds=null;
+const partyMapPalettes={
+ ALL:['#f1e9f8','#d8c5ed','#b595d6','#8d66b9','#593783'],
+ D:['#e8effa','#bfd2ed','#8baddb','#527fbd','#1f3c71'],
+ R:['#fff0e9','#fac6b5','#f29981','#e3664b','#a82e24'],
+ U:['#f1f2f5','#d9dce3','#b7bec9','#8c96a6','#586576'],
+ G:['#e6f5f1','#bde4da','#83c7b5','#39a38d','#006e60'],
+ L:['#fff5d9','#f8df9c','#efc562','#d9a32d','#98691b'],
+ NL:['#f2edf4','#ddd0e1','#bca5c5','#93729e','#63456e']
+};
+function activeMapPalette(){return partyMapPalettes[$('party').value]||partyMapPalettes.ALL}
+function mapKey(k){return String(k??'').trim().toUpperCase()}
+function mapDisplay(k,g){return g==='house'?'House District '+k:g==='senate'?'Senate District '+k:g==='county'?String(k).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):k}
+function mapPopupDisplay(k,g){return g==='county'?mapDisplay(k,g):String(mapDisplay(k,g)).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}
+function mapData(){let g=$('mapLayer').value,party=$('party').value,m=new Map();for(let r of rows){if(r[0]!==2026||(party!=='ALL'&&r[2]!==party))continue;let k=g==='town'?r[1]:g==='county'?townCounty[r[1]]:g==='house'?r[4]:r[3];k=mapKey(k);if(!k)continue;let o=m.get(k)||{requested:0,returned:0};if(r[6]==='returned')o.returned+=r[9];if(r[6]==='requested')o.requested+=r[9];m.set(k,o)}
+for(let [k,o] of m){o.rate=o.requested?100*o.returned/o.requested:null;o.share=null;if(g==='town'){let reg=DB.registration[k],p=$('party').value,den=reg&&(p==='ALL'?reg.TOTAL:reg[p]);if(den>0)o.share=100*o.returned/den}}
+if(g==='county'){let den=new Map();for(let [t,reg] of Object.entries(DB.registration)){let c=mapKey(townCounty[t]);if(!c)continue;let p=$('party').value,n=p==='ALL'?reg.TOTAL:reg[p];den.set(c,(den.get(c)||0)+(n||0))}for(let [k,o] of m)if(den.get(k)>0)o.share=100*o.returned/den.get(k)}return m}
+function mapMetricValue(o){return o?o[$('mapMetric').value]:null}
+function mapFormat(v){return v==null?'Not available':['rate','share'].includes($('mapMetric').value)?v.toFixed(1)+'%':fmt(v)}
+function mapQuantile(sorted,p){return sorted[Math.min(sorted.length-1,Math.floor((sorted.length-1)*p))]}
+function selectMapArea(key){
+  const g=$('mapLayer').value;
+  mapSelected={g,key:mapKey(key)};
+  $('geography').value=g;options();titleCountyOptions();
+  const opt=[...$('area').options].find(x=>mapKey(x.value)===mapKey(key));
+  $('area').value=opt?opt.value:'ALL';
+  localPage=0;
+  render();
+  focusSelectedMapArea();
+}
+
+function focusSelectedMapArea(){
+  if(!leaf||!mapSelected||!maps[mapSelected.g])return;
+  const selected=maps[mapSelected.g].features.filter(f=>mapKey(f.properties.key)===mapSelected.key);
+  if(!selected.length)return;
+  const bounds=L.geoJSON({type:'FeatureCollection',features:selected}).getBounds();
+  if(bounds.isValid())leaf.flyToBounds(bounds,{padding:[42,42],maxZoom:12,duration:.65});
+}
+function clearMapArea(){mapSelected=null;$('geography').value='state';options();$('area').value='ALL';localPage=0;render();if(mapBounds&&mapBounds.isValid())leaf.flyToBounds(mapBounds,{padding:[18,18],maxZoom:10,duration:.55})}
+function updateSelectionHeading(){
+  let g=$('geography').value,a=$('area').value;
+  const name=g==='state'||a==='ALL'?'All of Maine':mapDisplay(a,g);
+  const el=$('selectedGeography');if(el)el.textContent=name;
+  const reset=$('resetMapSelection');if(reset)reset.hidden=(g==='state'||a==='ALL');
+}
+function mapDetails(key,selected=false){
+  let g=$('mapLayer').value,o=mapStatsCache.get(mapKey(key));if(!o)return;
+  let html='<div class="map-small">'+(selected?'SELECTED AREA':'AREA DETAILS')+'</div><div class="map-detail-title">'+mapDisplay(key,g)+'</div>';
+  for(let [label,val] of [['Accepted ballots',fmt(o.returned)],['Ballots requested',fmt(o.requested)],['Absentee return rate',o.rate==null?'—':o.rate.toFixed(1)+'%'],['Registered voter share',o.share==null?'—':o.share.toFixed(1)+'%']])html+='<div class="map-stat"><span>'+label+'</span><strong>'+val+'</strong></div>';
+  html+='<p class="map-muted">'+(selected?'Charts and tables below reflect this selection.':'Click this area to update the charts and tables below.')+'</p>';
+  $('mapDetails').innerHTML=html;updateAreaContext(key);
+}
+function updateAreaContext(key){
+  const el=$('areaContext');
+  if(!el)return;
+  // This chart is a different measure from the cumulative pace chart:
+  // daily accepted ballots over the most recent 14 calendar days.
+  const latest=snapshot();
+  if(!latest){el.innerHTML='';return}
+  const party=$('party').value;
+  const g=$('mapLayer').value;
+  const selectedKey=key?mapKey(key):null;
+  const dates=Array.from({length:14},(_,i)=>{
+    const d=new Date(latest+'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate()-(13-i));
+    return d.toISOString().slice(0,10);
+  });
+  const totals=new Map(dates.map(d=>[d,0]));
+  for(const r of rows){
+    if(r[0]!==2026||r[6]!=='returned'||!totals.has(r[7]))continue;
+    if(party!=='ALL'&&r[2]!==party)continue;
+    if(selectedKey){
+      const rowKey=g==='town'?r[1]:g==='county'?townCounty[r[1]]:g==='house'?r[4]:r[3];
+      if(mapKey(rowKey)!==selectedKey)continue;
+    }
+    totals.set(r[7],totals.get(r[7])+r[9]);
+  }
+  const values=dates.map(d=>totals.get(d));
+  const max=Math.max(1,...values);
+  const color=activeMapPalette()[4];
+  const title=selectedKey?mapPopupDisplay(selectedKey,g):'Maine statewide';
+  const fmtDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+  const ticks=dates.map((d,i)=>i===0||i===6||i===13?fmtDate(d):'');
+  const bars=values.map((v,i)=>{
+    const height=v===0?0:Math.max(4,Math.round(v/max*100));
+    const label=fmtDate(dates[i])+': '+fmt(v)+' accepted '+(v===1?'ballot':'ballots');
+    return '<div class="activity-day" tabindex="0" aria-label="'+label+'" title="'+label+'">'+
+      '<span class="activity-bar" style="height:'+height+'%;background:'+color+'"></span>'+
+      '<span class="activity-day-tip"><strong>'+fmtDate(dates[i])+'</strong><span>'+fmt(v)+' accepted</span></span>'+
+      '</div>';
+  }).join('');
+  el.innerHTML='<div class="map-small">RECENT VOTING ACTIVITY</div>'+
+    '<div class="activity-heading">Daily ballot returns <span>Past 14 days</span></div>'+
+    '<div class="activity-place">'+title+'</div>'+
+    '<div class="activity-bars" role="group" aria-label="Accepted ballots by day for '+title+'">'+bars+'</div>'+
+    '<div class="activity-ticks"><span>'+ticks[0]+'</span><span>'+ticks[6]+'</span><span>'+ticks[13]+'</span></div>'+
+    '<p class="activity-footnote">Each bar represents accepted ballots recorded for that date. A zero means no returns appear in the current data for that date.</p>';
+
+}
+function mapRankings(){let g=$('mapLayer').value,metric=$('mapMetric').value,rank=[...mapStatsCache].map(([k,o])=>[k,o[metric]]).filter(([k,v])=>v!=null&&Number.isFinite(v)&&!(metric==='rate'&&mapStatsCache.get(k).requested<10));rank.sort((a,b)=>b[1]-a[1]);let markup=items=>items.slice(0,5).map(([k,v])=>'<div class="map-rank-row"><span>'+mapPopupDisplay(k,g)+'</span><b>'+mapFormat(v)+'</b></div>').join('')||'<p class="map-muted">No available data</p>';$('mapHighest').innerHTML=markup(rank);$('mapLowest').innerHTML=markup([...rank].reverse())}
+function paintMap(){
+  if(!leaf)return;
+  if(hoverOutline){leaf.removeLayer(hoverOutline);hoverOutline=null}
+  if(selectedOutline){leaf.removeLayer(selectedOutline);selectedOutline=null}
+  if(layer)leaf.removeLayer(layer);
+  const g=$('mapLayer').value,data=maps[g];if(!data||!Array.isArray(data.features))return;
+  mapStatsCache=mapData();
+  const metric=$('mapMetric').value;
+  const vals=[...mapStatsCache.values()].map(o=>o[metric]).filter(v=>v!=null&&Number.isFinite(v)).sort((a,b)=>a-b);
+  const cuts=vals.length?[0,.2,.4,.6,.8,1].map(q=>mapQuantile(vals,q)):[];
+  const scale=v=>{if(v==null||!Number.isFinite(v))return '#e9e8ee';let i=0;while(i<4&&v>cuts[i+1])i++;return activeMapPalette()[i]};
+  $('mapLegendTitle').textContent=$('mapMetric').selectedOptions[0].text.toUpperCase();document.documentElement.style.setProperty('--active-map-gradient','linear-gradient(90deg,'+activeMapPalette().join(',')+')');
+  $('mapScale').innerHTML=cuts.length?'<span>'+mapFormat(cuts[0])+'</span><span>'+mapFormat(cuts[2])+'</span><span>'+mapFormat(cuts[4])+'</span><span>'+mapFormat(cuts[5])+'</span>':'<span>No data</span>';
+  mapRankings();
+  // Separate SVG outline above the Canvas polygons prevents partial/missing borders.
+  const outlineStyle={color:'#29213d',weight:2,opacity:1,fill:false,interactive:false,lineJoin:'round'};
+  function outline(feature,kind){
+    if(kind==='hover'&&hoverOutline){leaf.removeLayer(hoverOutline);hoverOutline=null}
+    if(kind==='selected'&&selectedOutline){leaf.removeLayer(selectedOutline);selectedOutline=null}
+    if(!feature)return;
+    const l=L.geoJSON(feature,{renderer:L.svg({padding:.35}),style:outlineStyle,interactive:false}).addTo(leaf);
+    l.bringToFront();if(kind==='hover')hoverOutline=l;else selectedOutline=l;
+  }
+  layer=L.geoJSON(data,{style:f=>{
+    const o=mapStatsCache.get(mapKey(f.properties.key));
+    return {color:'#fff',weight:.7,fillColor:scale(mapMetricValue(o)),fillOpacity:.72};
+  },onEachFeature:(f,l)=>{
+    const key=mapKey(f.properties.key),o=mapStatsCache.get(key);
+    l.bindTooltip(mapPopupDisplay(key,g)+': '+mapFormat(mapMetricValue(o)),{sticky:true});
+    l.on('mouseover',()=>{if(o)mapDetails(key);outline(f,'hover')});
+    l.on('mouseout',()=>{if(hoverOutline){leaf.removeLayer(hoverOutline);hoverOutline=null}if(mapSelected&&mapSelected.g===g)mapDetails(mapSelected.key,true)});
+    l.on('click',()=>selectMapArea(key));
+  }}).addTo(leaf);
+  const bounds=layer.getBounds();
+  if(bounds.isValid()){mapBounds=bounds;if(!leaf._maineBoundsSet){leaf.fitBounds(bounds,{padding:[5,5],maxZoom:10});leaf._maineBoundsSet=true}}
+  if(mapSelected&&mapSelected.g===g&&mapStatsCache.has(mapKey(mapSelected.key))){
+    mapDetails(mapSelected.key,true);
+    const features=data.features.filter(f=>mapKey(f.properties.key)===mapKey(mapSelected.key));
+    if(features.length)outline({type:'FeatureCollection',features},'selected');
+  }else{$('mapDetails').innerHTML='<div class="map-detail-title">Select an area on the map</div><p class="map-muted">Click a town, county or district to explore its voting totals, history and activity below.</p>';updateAreaContext(null)}
+}
+function setupPillFilters(){
+  const party=$('party'),compare=$('compare');
+  function sync(){if($('partyQuick'))$('partyQuick').value=party.value;if($('compareQuick'))$('compareQuick').value=compare.value;document.querySelectorAll('#partyPills button').forEach(b=>{let a=b.dataset.party===party.value;b.classList.toggle('active',a);b.setAttribute('aria-pressed',String(a))});document.querySelectorAll('#comparePills button').forEach(b=>{let a=b.dataset.year===compare.value;b.classList.toggle('active',a);b.setAttribute('aria-pressed',String(a))})}
+  $('partyPills').addEventListener('click',e=>{const b=e.target.closest('button[data-party]');if(!b)return;party.value=b.dataset.party;sync();render()});
+  $('comparePills').addEventListener('click',e=>{const b=e.target.closest('button[data-year]');if(!b)return;compare.value=b.dataset.year;sync();render()});
+  $('partyQuick').addEventListener('change',()=>{party.value=$('partyQuick').value;sync();render()});$('compareQuick').addEventListener('change',()=>{compare.value=$('compareQuick').value;sync();render()});party.addEventListener('change',sync);compare.addEventListener('change',sync);sync();
+}
+function toggles(id,cb){$(id).addEventListener('click',e=>{let b=e.target.closest('button[data-v]');if(!b)return;$(id).querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));cb(b.dataset.v);render()})}
+async function init(){try{let data=await fetch('data.json').then(r=>{if(!r.ok)throw Error('Could not load data.json');return r.json()});DB=data;rows=data.observations;for(let f of ['county','town','house','senate'])maps[f]=await fetch(f+'.geojson').then(r=>{if(!r.ok)throw Error('Could not load '+f+'.geojson (HTTP '+r.status+')');return r.json()});for(let f of maps.town.features){let t=String(f.properties.key).toUpperCase();if(t)townCounty[t]=townCounty[t]||''} // county mapping by municipality geometry from preprocessed data
+let counties=maps.county.features;let turfCenters={}; // mapping supplied separately
+try{townCounty=await fetch('town_county.json').then(r=>r.json())}catch(e){console.warn('County lookup unavailable')}
+$('loading').hidden=true;$('dashboard').hidden=false;const firstChart=$('paceChart').closest('section');if(firstChart){const banner=document.createElement('div');banner.className='selection-context';banner.innerHTML='<span>EXPLORING <strong id="selectedGeography">All of Maine</strong></span>';firstChart.prepend(banner)}const headerControls=document.querySelector('.map-header .map-controls');if(headerControls){const reset=document.createElement('button');reset.id='resetMapSelection';reset.type='button';reset.hidden=true;reset.textContent='Clear selection ×';headerControls.prepend(reset);reset.addEventListener('click',clearMapArea)}leaf=L.map('map',{scrollWheelZoom:false,zoomControl:true,preferCanvas:true,dragging:true,doubleClickZoom:true,touchZoom:true,keyboard:true,zoomSnap:0.25,zoomDelta:0.5}).setView([45.25,-69.1],7);
+// Keep normal page scrolling intact; Command/Control + Magic Mouse wheel zooms at the pointer.
+const mapWheelTarget=$('map');
+mapWheelTarget.addEventListener('wheel',event=>{
+  if(!(event.metaKey||event.ctrlKey))return;
+  event.preventDefault();
+  const dy=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?400:1);
+  const step=Math.max(-0.65,Math.min(0.65,-dy/240));
+  if(Math.abs(step)<0.01)return;
+  const next=Math.max(leaf.getMinZoom(),Math.min(leaf.getMaxZoom(),leaf.getZoom()+step));
+  const rect=mapWheelTarget.getBoundingClientRect();
+  leaf.setZoomAround([event.clientX-rect.left,event.clientY-rect.top],next,{animate:false});
+},{passive:false});
+// Optional muted geographic context. GeoJSON still works if tile server is unavailable.
+// Optional no-key OpenStreetMap context layer; election GeoJSON is independent of it.
+const basemap=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,opacity:.85,attribution:'&copy; OpenStreetMap contributors',
+  updateWhenIdle:true,keepBuffer:2
+}).addTo(leaf);
+// A tile-provider failure must never block or cover the election map.
+let basemapFailures=0;
+basemap.on('tileerror',()=>{if(++basemapFailures>=4 && leaf.hasLayer(basemap)){
+  leaf.removeLayer(basemap);
+  console.warn('Basemap tiles unavailable; election boundaries remain available.');
+}});
+
+setTimeout(()=>{leaf.invalidateSize();if(layer&&layer.getBounds().isValid())leaf.fitBounds(layer.getBounds(),{padding:[5,5],maxZoom:10})},150);for(let id of ['geography','area','party','compare'])$(id).addEventListener('change',()=>{if(id==='geography'){options();titleCountyOptions();}if(id==='geography'||id==='area'){let g=$('geography').value,a=$('area').value;mapSelected=(g!=='state'&&a!=='ALL')?{g,key:mapKey(a)}:null;if(maps[g]){$('mapLayer').value=g;document.querySelectorAll('#mapSegments button').forEach(b=>b.classList.toggle('active',b.dataset.layer===g))}}render();if((id==='area'||id==='geography')&&mapSelected)focusSelectedMapArea();else if((id==='area'||id==='geography')&&mapBounds&&mapBounds.isValid())leaf.flyToBounds(mapBounds,{padding:[18,18],maxZoom:10,duration:.5})});$('mapLayer').addEventListener('change',()=>{clearMapArea()});$('mapMetric').addEventListener('change',paintMap);$('mapSegments').addEventListener('click',e=>{let b=e.target.closest('button[data-layer]');if(!b)return;$('mapLayer').value=b.dataset.layer;$('mapSegments').querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));clearMapArea()});$('search').addEventListener('input',()=>{localPage=0;renderTowns()});setupLocalExplorer();setupPillFilters();toggles('paceToggle',v=>paceMode=v);toggles('dailyToggle',v=>dailyMode=v);options();titleCountyOptions();render()}catch(e){$('loading').textContent='Unable to load tracker data: '+e.message+'. Serve these files together from a web server rather than opening index.html directly.';console.error(e)}}init();
+</script><script>
+/* Poll the hosted snapshot, without implying a direct live connection to Maine SOS. */
+let trackerLastPayload = null;
+async function checkTrackerUpdates(manual=false){
+  const status=document.getElementById('refreshStatus');
+  if(!DB||!rows.length)return;
+  if(manual)status.textContent='Checking published data…';
+  try{
+    const response=await fetch('data.json?fresh='+Date.now(),{cache:'no-store'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const payload=await response.text();
+    if(trackerLastPayload===null){trackerLastPayload=payload;if(manual)status.textContent='Published snapshot checked · '+new Date().toLocaleTimeString();return}
+    if(payload===trackerLastPayload){if(manual)status.textContent='No changes to published data · '+new Date().toLocaleTimeString();return}
+    const updated=JSON.parse(payload);
+    if(!Array.isArray(updated.observations))throw Error('Missing observations');
+    trackerLastPayload=payload;DB=updated;rows=updated.observations;
+    render();status.textContent='New published data loaded · '+new Date().toLocaleTimeString();
+  }catch(e){status.textContent='Could not check for updates: '+e.message}
+}
+document.getElementById('refreshData').addEventListener('click',()=>checkTrackerUpdates(true));
+setInterval(()=>checkTrackerUpdates(false),15*60*1000);
+/* Establish a baseline once the initial load completes. */
+window.addEventListener('load',()=>setTimeout(()=>checkTrackerUpdates(false),2500));
+</script></body></html>
