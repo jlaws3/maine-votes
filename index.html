@@ -944,4 +944,40 @@ document.getElementById('refreshData').addEventListener('click',()=>checkTracker
 setInterval(()=>checkTrackerUpdates(false),15*60*1000);
 /* Establish a baseline once the initial load completes. */
 window.addEventListener('load',()=>setTimeout(()=>checkTrackerUpdates(false),2500));
+</script>  
+<script>
+(function () {
+  let lastHeight = 0;
+
+  function sendHeight() {
+    const height = Math.ceil(
+      Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      )
+    );
+
+    if (Math.abs(height - lastHeight) < 2) return;
+
+    lastHeight = height;
+
+    window.parent.postMessage(
+      {
+        type: 'maine-votes-height',
+        height: height
+      },
+      '*'
+    );
+  }
+
+  window.addEventListener('load', sendHeight);
+  window.addEventListener('resize', sendHeight);
+
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(sendHeight).observe(document.body);
+  }
+
+  setTimeout(sendHeight, 1000);
+  setTimeout(sendHeight, 3000);
+})();
 </script></body></html>
