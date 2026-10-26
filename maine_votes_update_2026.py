@@ -279,6 +279,24 @@ def main():
         if row[0] == YEAR
     ]
 
+        historical_dates = [
+        row for row in new_rows
+        if row[7] and row[7] < "2026-01-01"
+    ]
+
+    print("Pre-2026 aggregate observations:", len(historical_dates))
+    print(
+        "Pre-2026 requested ballots:",
+        sum(r[-1] for r in historical_dates if r[6] == "requested")
+    )
+    print(
+        "Pre-2026 returned ballots:",
+        sum(r[-1] for r in historical_dates if r[6] == "returned")
+    )
+    print(
+        "Earliest observation date:",
+        min((r[7] for r in new_rows if r[7]), default="none")
+    )
     validate(old_rows, new_rows, audit)
 
     old_counts = {
