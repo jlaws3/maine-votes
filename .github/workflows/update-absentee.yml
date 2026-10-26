@@ -1,0 +1,128 @@
+
+name: Update Maine Absentee Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 12 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maine-absentee-update
+  cancel-in-progress: false
+
+jobs:
+  validate-absentee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Find and download latest 2026 report
+        shell: bash
+        run: |
+          python - <<'PY'
+          import html
+          import re
+          import urllib.parse
+          import urllib.request
+
+          page = "https://www.maine.gov/sos/elections-voting/voter-data"
+
+          headers = {
+              "User-Agent": "MaineVotesDataUpdater/1.0"
+          }
+
+          def download(url):
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=120) as response:
+                  return response.read()
+
+          content = download(page).decode("utf-8", errors="replace")
+
+          links = re.findall(
+              r'href=["\']([^"\']+\.txt(?:\?[^"\']*)?)["\']',
+              content,
+              re.IGNORECASE
+          )
+
+          matches = []
+
+          for link in links:
+              link = html.unescape(link)
+              decoded = urllib.parse.unquote(link)
+
+              if re.search(
+                  r"11-3-26.*AB.*Voter.*File",
+                  decoded,
+                  re.IGNORECASE
+              ):
+                  matches.append(
+                      urllib.parse.urljoin(page, link)
+                  )
+
+          if not matches:
+              raise RuntimeError(
+                  "Could not locate the 2026 absentee report."
+              )
+
+          if len(set(matches)) != 1:
+              raise RuntimeError(
+                  "Multiple 2026 reports found. Manual review required."
+              )
+
+          url = matches[0]
+          print("Selected report:", url)
+
+          raw = download(url)
+
+          header = raw.splitlines()[0].decode(
+              "utf-8-sig",
+              errors="replace"
+          )
+
+          required = [
+              "RES MUNICIPALITY",
+              "Voter Record #",
+              "Req Date",
+              "Rec Date",
+              "Status"
+          ]
+
+          if not all(field in header.split("|") for field in required):
+              raise RuntimeError("Unexpected report format.")
+
+          if len(raw) < 1000000:
+              raise RuntimeError("Report unexpectedly small.")
+
+          with open("absentee_2026.txt", "wb") as f:
+              f.write(raw)
+
+          print("Report downloaded and header validated.")
+          print("Bytes:", len(raw))
+          PY
+
+      - name: Validate report against existing data
+        shell: bash
+        run: |
+          python maine_votes_update_2026.py \
+            --source absentee_2026.txt \
+            --data data.json \
+            --output data_validated.json \
+            --check-only
+
+      - name: Remove raw voter records
+        if: always()
+        shell: bash
+        run: |
+          rm -f absentee_2026.txt
+          rm -f data_validated.json
