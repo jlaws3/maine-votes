@@ -265,13 +265,48 @@ jobs:
             exit 0
           fi
 
-          mv data_next.json data.json
+              mv data_next.json data.json
+
+          python3 - <<'PY'
+          import datetime
+          import json
+          from pathlib import Path
+
+          path = Path("data-version.json")
+          version = json.loads(path.read_text(encoding="utf-8"))
+
+          version["version"] = int(version.get("version", 0)) + 1
+          version["updated"] = datetime.datetime.now(
+              datetime.timezone.utc
+          ).isoformat(timespec="seconds")
+
+          path.write_text(
+              json.dumps(version, indent=2) + "\n",
+              encoding="utf-8"
+          )
+
+          print("Updated data version:", version["version"])
+          PY
 
           git config user.name "github-actions[bot]"
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add -- data.json
+          git add -- data.json data-version.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update 2026 absentee aggregates"
+          git push origin HEAD:main
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- data.json data-version.json
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
