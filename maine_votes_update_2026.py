@@ -228,11 +228,11 @@ def validate(existing_rows, new_rows, audit):
                 <= observation_date
                 <= dt.date(YEAR, 12, 31)
             ):
-            raise ValueError(
-                f"Observation date {observation_date} "
-                f"is outside the permitted election "
-                f"reporting period."
-            )
+                raise ValueError(
+                    f"Observation date {observation_date} "
+                    f"is outside the permitted election "
+                    f"reporting period."
+                )
 
     if existing_rows:
         old_latest = latest_date(existing_rows)
