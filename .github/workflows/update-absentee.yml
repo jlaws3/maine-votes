@@ -26,7 +26,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Test Maine website access
+        shell: bash
+        run: |
+          echo "Testing voter-data webpage..."
+          curl -L -sS -o /dev/null -w 'Webpage HTTP status: %{http_code}\n' \
+            --max-time 30 \
+            "https://www.maine.gov/sos/elections-voting/voter-data"
 
+          echo "Testing absentee report..."
+          curl -L -sS -o /dev/null -w 'Report HTTP status: %{http_code}\n' \
+            --max-time 30 \
+            "https://www.maine.gov/sos/sites/maine.gov.sos/files/inline-files/11-3-26%20AB%20Voter%20File%20as%20of%2010-23-26.txt"
       - name: Find and download latest 2026 report
         shell: bash
         run: |
