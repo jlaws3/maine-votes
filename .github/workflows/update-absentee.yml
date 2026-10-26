@@ -249,8 +249,13 @@ jobs:
       - name: Publish updated aggregate data
         if: >-
           success() &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.publish == true
+          (
+            github.event_name == 'schedule' ||
+            (
+              github.event_name == 'workflow_dispatch' &&
+              inputs.publish == true
+            )
+          )
         shell: bash
         run: |
           set -euo pipefail
