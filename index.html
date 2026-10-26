@@ -783,7 +783,35 @@ function setupPillFilters(){
   $('partyQuick').addEventListener('change',()=>{party.value=$('partyQuick').value;sync();render()});$('compareQuick').addEventListener('change',()=>{compare.value=$('compareQuick').value;sync();render()});party.addEventListener('change',sync);compare.addEventListener('change',sync);sync();
 }
 function toggles(id,cb){$(id).addEventListener('click',e=>{let b=e.target.closest('button[data-v]');if(!b)return;$(id).querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));cb(b.dataset.v);render()})}
-async function init(){try{let data=await fetch('data.json?fresh='+Date.now(),{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Could not load data.json');return r.json()});DB=data;rows=data.observations;for(let f of ['county','town','house','senate'])maps[f]=await fetch(f+'.geojson').then(r=>{if(!r.ok)throw Error('Could not load '+f+'.geojson (HTTP '+r.status+')');return r.json()});for(let f of maps.town.features){let t=String(f.properties.key).toUpperCase();if(t)townCounty[t]=townCounty[t]||''} // county mapping by municipality geometry from preprocessed data
+async function init(){try{
+  /* Record the published version before loading the dataset. */
+  try {
+    const response = await fetch(
+      'data-version.json?fresh=' + Date.now(),
+      { cache: 'no-store' }
+    );
+
+    if (response.ok) {
+      const info = await response.json();
+      const version = Number(info.version);
+
+      if (Number.isSafeInteger(version) && version >= 1) {
+        trackerLastVersion = version;
+      }
+    }
+  } catch (error) {
+    console.warn('Initial version check unavailable:', error);
+  }
+
+  let data = await fetch(
+    'data.json?fresh=' + Date.now(),
+    { cache: 'no-store' }
+  ).then(r => {
+    if (!r.ok) throw Error('Could not load data.json');
+    return r.json();
+  });
+
+  DB = data;rows=data.observations;for(let f of ['county','town','house','senate'])maps[f]=await fetch(f+'.geojson').then(r=>{if(!r.ok)throw Error('Could not load '+f+'.geojson (HTTP '+r.status+')');return r.json()});for(let f of maps.town.features){let t=String(f.properties.key).toUpperCase();if(t)townCounty[t]=townCounty[t]||''} // county mapping by municipality geometry from preprocessed data
 let counties=maps.county.features;let turfCenters={}; // mapping supplied separately
 try{townCounty=await fetch('town_county.json').then(r=>r.json())}catch(e){console.warn('County lookup unavailable')}
 $('loading').hidden=true;$('dashboard').hidden=false;const firstChart=$('paceChart').closest('section');if(firstChart){const banner=document.createElement('div');banner.className='selection-context';banner.innerHTML='<span>EXPLORING <strong id="selectedGeography">All of Maine</strong></span>';firstChart.prepend(banner)}const headerControls=document.querySelector('.map-header .map-controls');if(headerControls){const reset=document.createElement('button');reset.id='resetMapSelection';reset.type='button';reset.hidden=true;reset.textContent='Clear selection ×';headerControls.prepend(reset);reset.addEventListener('click',clearMapArea)}leaf=L.map('map',{scrollWheelZoom:false,zoomControl:true,preferCanvas:true,dragging:true,doubleClickZoom:true,touchZoom:true,keyboard:true,zoomSnap:0.25,zoomDelta:0.5}).setView([45.25,-69.1],7);
@@ -847,17 +875,26 @@ async function checkTrackerUpdates(manual = false) {
       throw Error('Invalid data version');
     }
 
-    /* Establish the initial version without downloading data.json again. */
-    if (trackerLastVersion === null) {
-      trackerLastVersion = version;
+    /* On the first check, verify the loaded dataset matches the version. */
+if (trackerLastVersion === null) {
+  const initialResponse = await fetch(
+    'data.json',
+    { method: 'HEAD', cache: 'no-store' }
+  );
 
-      if (manual) {
-        status.textContent = 'Published data checked · ' +
-          new Date().toLocaleTimeString();
-      }
+  if (!initialResponse.ok) {
+    throw Error('Initial data verification HTTP ' + initialResponse.status);
+  }
 
-      return;
-    }
+  trackerLastVersion = version;
+
+  if (manual) {
+    status.textContent = 'Published data checked · ' +
+      new Date().toLocaleTimeString();
+  }
+
+  return;
+}
 
     if (version === trackerLastVersion) {
       if (manual) {
