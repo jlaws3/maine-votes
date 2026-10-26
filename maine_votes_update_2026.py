@@ -223,15 +223,9 @@ def validate(existing_rows, new_rows, audit):
         if row[7]:
             observation_date = dt.date.fromisoformat(row[7])
 
-            if not (
-                dt.date(2020, 1, 1)
-                <= observation_date
-                <= dt.date(YEAR, 12, 31)
-            ):
+            if observation_date > dt.date(YEAR, 12, 31):
                 raise ValueError(
-                    f"Observation date {observation_date} "
-                    f"is outside the permitted election "
-                    f"reporting period."
+                    f"Future observation date: {observation_date}"
                 )
 
     if existing_rows:
