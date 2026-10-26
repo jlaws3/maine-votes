@@ -308,20 +308,7 @@ def main():
 
     for year, count in sorted(by_year.items()):
         print(f"  {year}: {count:,} requests")
-            print("Pre-2026 requests by period:")
-
-    for start, end, label in [
-        ("1900", "2024", "Before 2024"),
-        ("2024", "2025", "2024"),
-        ("2025", "2026", "2025"),
-    ]:
-        count = sum(
-            row[-1]
-            for row in new_rows
-            if row[6] == "requested"
-            and start <= row[7][:4] < end
-        )
-        print(f"{label}: {count:,}")
+        
     validate(old_rows, new_rows, audit)
 
     old_counts = {
