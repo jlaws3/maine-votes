@@ -297,7 +297,17 @@ def main():
         "Earliest observation date:",
         min((r[7] for r in new_rows if r[7]), default="none")
     )
+    print("Historical request dates by year:")
+    by_year = collections.Counter()
 
+    for row in new_rows:
+        if row[6] == "requested" and row[7]:
+            year = row[7][:4]
+            if year < "2026":
+                by_year[year] += row[-1]
+
+    for year, count in sorted(by_year.items()):
+        print(f"  {year}: {count:,} requests")
     validate(old_rows, new_rows, audit)
 
     old_counts = {
