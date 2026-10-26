@@ -896,4 +896,138 @@ document.getElementById('refreshData').addEventListener('click',()=>checkTracker
 setInterval(()=>checkTrackerUpdates(false),15*60*1000);
 /* Establish a baseline once the initial load completes. */
 window.addEventListener('load',()=>setTimeout(()=>checkTrackerUpdates(false),2500));
+  
+<style>
+/* Maine Votes — historical comparison legend */
+.maine-pace-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 12px 0 0;
+  font-family: Barlow, Arial, sans-serif;
+}
+
+.maine-pace-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #526175;
+}
+
+.maine-pace-legend-line {
+  width: 32px;
+  height: 0;
+  border-top: 4px solid;
+  flex-shrink: 0;
+}
+
+.maine-pace-legend-line.historical {
+  border-top-style: dashed;
+}
+
+@media (max-width: 600px) {
+  .maine-pace-legend {
+    gap: 10px 18px;
+  }
+
+  .maine-pace-legend-item {
+    font-size: 12px;
+  }
+}
+</style>
+
+<script>
+(function () {
+  "use strict";
+
+  const colors = {
+    "2026": "#1f3c71",
+    "2024": "#007f70",
+    "2022": "#fa963d"
+  };
+
+  function updatePaceLegend() {
+    const chart = document.getElementById("paceChart");
+    if (!chart) return;
+
+    const chartBox = chart.closest(".pace-chartbox");
+    if (!chartBox) return;
+
+    let legend = document.getElementById("mainePaceLegend");
+
+    if (!legend) {
+      legend = document.createElement("div");
+      legend.id = "mainePaceLegend";
+      legend.className = "maine-pace-legend";
+      legend.setAttribute("aria-label", "Election chart legend");
+      chartBox.insertAdjacentElement("afterend", legend);
+    }
+
+    const selected = document.getElementById("compare")?.value || "2024";
+
+    const items = [
+      { year: "2026", label: "2026 current" },
+      {
+        year: selected,
+        label: selected === "2024"
+          ? "2024 Presidential"
+          : "2022 Midterm"
+      }
+    ];
+
+    legend.innerHTML = items.map(item => `
+      <span class="maine-pace-legend-item">
+        <span
+          class="maine-pace-legend-line
+          ${item.year === "2026" ? "" : "historical"}"
+          style="border-top-color:${colors[item.year]}"
+          aria-hidden="true"
+        ></span>
+        <span>${item.label}</span>
+      </span>
+    `).join("");
+
+    // Hide Chart.js's built-in legend if the chart exists.
+    if (typeof Chart !== "undefined") {
+      const instance = Chart.getChart(chart);
+      if (instance && instance.options.plugins?.legend) {
+        instance.options.plugins.legend.display = false;
+        instance.update("none");
+      }
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const buttons = document.getElementById("comparePills");
+
+    if (buttons) {
+      buttons.addEventListener("click", function () {
+        requestAnimationFrame(updatePaceLegend);
+      });
+    }
+
+    const toggle = document.getElementById("paceToggle");
+
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        requestAnimationFrame(updatePaceLegend);
+      });
+    }
+
+    const chart = document.getElementById("paceChart");
+
+    if (chart) {
+      const observer = new MutationObserver(updatePaceLegend);
+      observer.observe(chart, { attributes: true });
+    }
+
+    updatePaceLegend();
+  });
+})();
+</script>
+
 </script></body></html>
