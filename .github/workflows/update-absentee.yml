@@ -3,24 +3,32 @@ name: Update Maine Absentee Data
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish validated aggregate data?"
+        type: boolean
+        required: true
+        default: false
   schedule:
     - cron: "15 12 * * *"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: maine-absentee-update
   cancel-in-progress: false
 
 jobs:
-  validate-absentee:
+  update-absentee:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -75,16 +83,18 @@ jobs:
 
           if len(matches) != 1:
               raise RuntimeError(
-                  f"Expected exactly one 2026 absentee report, "
-                  f"found {len(matches)}: {matches}"
+                  f"Expected one 2026 absentee report; "
+                  f"found {len(matches)}."
               )
 
           url = matches[0]
+          parsed = urllib.parse.urlparse(url)
 
-          if urllib.parse.urlparse(url).hostname != "www.maine.gov":
-              raise RuntimeError(
-                  "Unexpected report download domain."
-              )
+          if parsed.scheme != "https":
+              raise RuntimeError("Report must use HTTPS.")
+
+          if parsed.hostname != "www.maine.gov":
+              raise RuntimeError("Unexpected report domain.")
 
           Path("report-url.txt").write_text(
               url,
@@ -104,7 +114,7 @@ jobs:
             "$(cat report-url.txt)" \
             -o absentee_2026.txt
 
-          echo "Report downloaded successfully."
+          echo "Report downloaded."
 
       - name: Verify report format
         shell: bash
@@ -116,39 +126,43 @@ jobs:
           path = Path("absentee_2026.txt")
 
           if not path.exists():
-              raise RuntimeError("Report file is missing.")
+              raise RuntimeError("Report missing.")
 
           if path.stat().st_size < 1000000:
-              raise RuntimeError(
-                  "Downloaded report is unexpectedly small."
-              )
+              raise RuntimeError("Report unexpectedly small.")
 
           with path.open(
               encoding="utf-8-sig",
-              errors="replace"
-          ) as f:
+              errors="replace",
+              newline=""
+          ) as file:
               header = next(
-                  csv.reader(f, delimiter="|")
+                  csv.reader(file, delimiter="|")
               )
 
           required = {
               "RES MUNICIPALITY",
               "Voter Record #",
+              "P",
+              "SS",
+              "SR",
+              "CG",
               "Req Date",
               "Rec Date",
-              "Status"
+              "Rec Type",
+              "Status",
+              "DUP"
           }
 
           if not required.issubset(set(header)):
               raise RuntimeError(
-                  "Unexpected absentee report format."
+                  "Unexpected report columns."
               )
 
           print("Report format verified.")
-          print("File size:", path.stat().st_size, "bytes")
           PY
 
-      - name: Validate against existing dashboard data
+      - name: Rebuild and validate aggregate data
         shell: bash
         run: |
           set -euo pipefail
@@ -156,16 +170,121 @@ jobs:
           python3 maine_votes_update_2026.py \
             --source absentee_2026.txt \
             --data data.json \
-            --output data_validated.json \
-            --check-only
+            --output data_next.json
 
-      - name: Remove temporary and voter-level files
+      - name: Check publication safeguards
+        if: success()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import datetime as dt
+          import json
+          from pathlib import Path
+
+          next_file = Path("data_next.json")
+
+          if not next_file.exists():
+              print("No aggregate changes.")
+              raise SystemExit(0)
+
+          with open("data.json", encoding="utf-8") as file:
+              old = json.load(file)
+
+          with next_file.open(encoding="utf-8") as file:
+              new = json.load(file)
+
+          old_history = [
+              row for row in old["observations"]
+              if row[0] != 2026
+          ]
+
+          new_history = [
+              row for row in new["observations"]
+              if row[0] != 2026
+          ]
+
+          if old_history != new_history:
+              raise RuntimeError(
+                  "Historical election data changed."
+              )
+
+          def historical_requests(data):
+              return sum(
+                  row[-1]
+                  for row in data["observations"]
+                  if row[0] == 2026
+                  and row[6] == "requested"
+                  and row[7]
+                  and row[7] < "2026-01-01"
+              )
+
+          old_count = historical_requests(old)
+          new_count = historical_requests(new)
+
+          print("Previous pre-2026 requests:", old_count)
+          print("New pre-2026 requests:", new_count)
+
+          if new_count > old_count + 25:
+              raise RuntimeError(
+                  "Unexpected increase in historical "
+                  "request dates. Manual review required."
+              )
+
+          today = dt.date.today()
+
+          for row in new["observations"]:
+              if row[0] != 2026 or not row[7]:
+                  continue
+
+              date = dt.date.fromisoformat(row[7])
+
+              if date > today:
+                  raise RuntimeError(
+                      "Future-dated observation found."
+                  )
+
+          print("Publication safeguards passed.")
+          PY
+
+      - name: Publish updated aggregate data
+        if: >-
+          success() &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.publish == true
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f data_next.json ]; then
+            echo "No changes to publish."
+            exit 0
+          fi
+
+          mv data_next.json data.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- data.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update 2026 absentee aggregates"
+          git push origin HEAD:main
+
+          echo "Updated aggregate data published."
+
+      - name: Remove temporary voter-level files
         if: always()
         shell: bash
         run: |
           rm -f absentee_2026.txt
-          rm -f data_validated.json
           rm -f voter-data-page.html
           rm -f report-url.txt
+          rm -f data_next.json
 
           echo "Temporary files removed."
