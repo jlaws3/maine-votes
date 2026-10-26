@@ -220,13 +220,18 @@ def validate(existing_rows, new_rows, audit):
         if row[-1] <= 0:
             raise ValueError("Invalid aggregate count.")
 
-        if row[7] and (
-            row[7] < f"{YEAR}-01-01"
-            or row[7] > f"{YEAR}-12-31"
-        ):
-            raise ValueError(
-                "Observation date is outside election year."
-            )
+        if row[7]:
+            observation_date = dt.date.fromisoformat(row[7])
+
+            if not (
+                dt.date(YEAR - 1, 1, 1)
+                <= observation_date
+                <= dt.date(YEAR, 12, 31)
+            ):
+                raise ValueError(
+                    "Observation date is outside the "
+                    "permitted election reporting period."
+                )
 
     if existing_rows:
         old_latest = latest_date(existing_rows)
