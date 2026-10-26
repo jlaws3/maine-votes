@@ -224,7 +224,7 @@ def validate(existing_rows, new_rows, audit):
             observation_date = dt.date.fromisoformat(row[7])
 
             if not (
-                dt.date(YEAR - 1, 1, 1)
+                dt.date(YEAR 2020, 1, 1)
                 <= observation_date
                 <= dt.date(YEAR, 12, 31)
             ):
